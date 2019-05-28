@@ -1,81 +1,71 @@
 const n = require('ldapjs'),
-  e = require('fs'),
-  s = require('mongodb').MongoClient,
-  r = require('./ldapdb.json'),
-  o = require('assert'),
-  t = [
+  e = require('mongodb').MongoClient,
+  o = require('./ldapdb.json'),
+  s = require('assert'),
+  r = [
     'mongodb://',
-    r.user + ':' + r.password + '@',
-    r.ip,
+    o.user + ':' + o.password + '@',
+    o.ip,
     ':',
-    r.port,
+    o.port,
     '/',
-    r.dbname,
+    o.dbname,
   ].join('');
-s.connect(t, function(n, e) {
-  o.equal(null, n), console.log('Connected successfully to server');
-  const s = e.db(r.dbname);
-  c();
-  !(function(n, e) {
-    const s = n.collection('users');
-    s.find({}).toArray(function(n, s) {
-      o.equal(n, null), e(s);
-    });
-  })(s, n => {
-    console.log(n);
-  }),
-    e.close();
+e.connect(r, function(n, e) {
+  s.equal(null, n), console.log('Connected successfully to server');
+  const r = e.db(o.dbname);
+  u(r);
 });
-const c = () => {
-  const s = n.createServer();
-  s.bind('cn=root', function(n, e, s) {
-    return console.log(n.dn.rdns), e.end(), s();
+const u = e => {
+  const o = n.createServer(),
+    r = function(n) {
+      const o = e.collection('users');
+      o.find({}).toArray(function(e, o) {
+        s.equal(e, null), n(o);
+      });
+    };
+  o.bind('cn=root', function(n, e, o) {
+    return console.log(n.dn.rdns), e.end(), o();
   });
-  const r = [
-    function(e, s, r) {
+  const u = [
+    function(e, o, s) {
       return e.connection.ldap.bindDN.equals('cn=root')
-        ? r()
-        : r(new n.InsufficientAccessRightsError());
+        ? s()
+        : s(new n.InsufficientAccessRightsError());
     },
-    function(s, r, o) {
-      e.readFile('/etc/passwd', 'utf8', function(e, r) {
-        if (e) return o(new n.OperationsError(e.message));
-        s.users = {};
-        for (var t = r.split('\n'), c = 0; c < t.length; c++)
-          if (t[c] && !/^#/.test(t[c])) {
-            var u = t[c].split(':');
-            u &&
-              u.length &&
-              (s.users[u[0]] = {
-                dn: `cn=${u[0]},uid=${
-                  u[2]
-                }, ou=users, o=authingId, dc=authing, dc=cn`,
-                attributes: {
-                  cn: u[0],
-                  uid: u[2],
-                  gid: u[3],
-                  description: u[4],
-                  homedirectory: u[5],
-                  shell: u[6] || '',
-                  objectclass: 'unixUser',
-                },
-              });
-          }
+    function(n, e, o) {
+      r(e => {
+        n.users = {};
+        for (var s = 0; s < e.length; s++) {
+          const o = e[s];
+          n.users[o._id] = {
+            dn: `cn=${o.username || o.email || o.phone || o.unionid},uid=${
+              o._id
+            }, ou=users, o=authingId, dc=authing, dc=cn`,
+            attributes: {
+              cn: o.username || o.email || o.phone || o.unionid,
+              uid: o._id,
+              gid: o._id,
+              username: o.username,
+              objectclass: 'authingUser',
+            },
+          };
+        }
         return o();
       });
     },
   ];
-  s.search('o=authingId, ou=users, dc=authing, dc=cn', r, function(n, e, s) {
+  o.search('o=authingId, ou=users, dc=authing, dc=cn', u, function(n, e, o) {
     return (
-      Object.keys(n.users).forEach(function(s) {
-        n.filter.matches(n.users[s].attributes) && e.send(n.users[s]);
+      Object.keys(n.users).forEach(function(o) {
+        n.filter.matches(n.users[o].attributes) && e.send(n.users[o]);
       }),
       e.end(),
-      s()
+      o()
     );
   }),
-    s.listen(1389, function() {
-      console.log('LDAP server up at: %s', s.url);
+    o.listen(1389, function() {
+      console.log('LDAP server up at: %s', o.url);
     });
 };
 //# sourceMappingURL=ldap-idp.es.production.js.map

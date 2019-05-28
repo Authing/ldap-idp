@@ -7,10 +7,6 @@
     /*#__PURE__*/
     require('ldapjs');
 
-  const fs =
-    /*#__PURE__*/
-    require('fs');
-
   const MongoClient =
     /*#__PURE__*/
     require('mongodb').MongoClient;
@@ -39,7 +35,7 @@
     assert.equal(null, _err);
     console.log('Connected successfully to server');
     const db = client.db(ldapdb.dbname);
-    createLDAPServer(); // const insertDocuments = function(db, callback) {
+    createLDAPServer(db); // const insertDocuments = function(db, callback) {
     //   // Get the documents collection
     //   const collection = db.collection('documents');
     //   // Insert some documents
@@ -53,8 +49,13 @@
     //     callback(result);
     //   });
     // }
+    // client.close();
+  });
 
-    const findDocuments = function(db, callback) {
+  const createLDAPServer = db => {
+    const server = ldap.createServer();
+
+    const findUsers = function(callback) {
       const collection = db.collection('users');
       collection.find({}).toArray(function(err, docs) {
         assert.equal(err, null);
@@ -62,43 +63,35 @@
       });
     };
 
-    findDocuments(db, users => {
-      console.log(users);
-    });
-    client.close();
-  });
-
-  const createLDAPServer = () => {
-    const server = ldap.createServer();
-
     function authorize(req, _res, next) {
       if (!req.connection.ldap.bindDN.equals('cn=root'))
         return next(new ldap.InsufficientAccessRightsError());
       return next();
     }
 
-    function loadPasswdFile(req, _res, next) {
-      fs.readFile('/etc/passwd', 'utf8', function(err, data) {
-        if (err) return next(new ldap.OperationsError(err.message));
+    function loadAuthingUsers(req, _res, next) {
+      findUsers(users => {
         req.users = {};
-        var lines = data.split('\n');
 
-        for (var i = 0; i < lines.length; i++) {
-          if (!lines[i] || /^#/.test(lines[i])) continue;
-          var record = lines[i].split(':');
-          if (!record || !record.length) continue;
-          req.users[record[0]] = {
-            dn: `cn=${record[0]},uid=${
-              record[2]
+        for (var i = 0; i < users.length; i++) {
+          const currentUser = users[i];
+          req.users[currentUser._id] = {
+            dn: `cn=${currentUser.username ||
+              currentUser.email ||
+              currentUser.phone ||
+              currentUser.unionid},uid=${
+              currentUser._id
             }, ou=users, o=authingId, dc=authing, dc=cn`,
             attributes: {
-              cn: record[0],
-              uid: record[2],
-              gid: record[3],
-              description: record[4],
-              homedirectory: record[5],
-              shell: record[6] || '',
-              objectclass: 'unixUser',
+              cn:
+                currentUser.username ||
+                currentUser.email ||
+                currentUser.phone ||
+                currentUser.unionid,
+              uid: currentUser._id,
+              gid: currentUser._id,
+              username: currentUser.username,
+              objectclass: 'authingUser',
             },
           };
         }
@@ -120,7 +113,7 @@
       res.end();
       return next();
     });
-    const pre = [authorize, loadPasswdFile];
+    const pre = [authorize, loadAuthingUsers];
     server.search(SUFFIX, pre, function(req, res, next) {
       Object.keys(req.users).forEach(function(k) {
         if (req.filter.matches(req.users[k].attributes)) res.send(req.users[k]);

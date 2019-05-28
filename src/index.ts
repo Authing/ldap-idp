@@ -22,18 +22,7 @@ MongoClient.connect(url, function(_err: any, client: any) {
   console.log('Connected successfully to server');
   const db = client.db(ldapdb.dbname);
 
-  const findUsers: any = function(callback: any) {
-    const collection = db.collection('users');
-    collection.find({}).toArray(function(err: any, docs: any) {
-      assert.equal(err, null);
-      callback(docs);
-    });
-  };
-
-  createLDAPServer({
-    db,
-    findUsers,
-  });
+  createLDAPServer(db);
 
   // const insertDocuments = function(db, callback) {
   //   // Get the documents collection
@@ -50,11 +39,19 @@ MongoClient.connect(url, function(_err: any, client: any) {
   //   });
   // }
 
-  client.close();
+  // client.close();
 });
 
-const createLDAPServer = ({ _db: any, findUsers: any }) => {
+const createLDAPServer = (db: any) => {
   const server: any = ldap.createServer();
+
+  const findUsers: any = function(callback: any) {
+    const collection = db.collection('users');
+    collection.find({}).toArray(function(err: any, docs: any) {
+      assert.equal(err, null);
+      callback(docs);
+    });
+  };
 
   function authorize(req: any, _res: any, next: any) {
     if (!req.connection.ldap.bindDN.equals('cn=root'))

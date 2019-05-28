@@ -4,4 +4,4 @@ declare const MongoClient: any;
 declare const ldapdb: any;
 declare const assert: any;
 declare const url: string;
-declare const createLDAPServer: () => void;
+declare const createLDAPServer: (db: any) => void;

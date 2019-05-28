@@ -1,0 +1,3 @@
+dn: cn=ldapjs, ou=users, o=5c344f102e450b000170190a, dc=authing, dc=cn
+objectClass: authingUsers
+cn: ldapjs

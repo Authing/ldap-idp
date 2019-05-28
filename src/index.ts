@@ -21,26 +21,11 @@ const url = [
 // Use connect method to connect to the server
 MongoClient.connect(url, function(_err: any, client: any) {
   assert.equal(null, _err);
+
   console.log('Connected successfully to server');
+
   const db = client.db(ldapdb.dbname);
-
   createLDAPServer(db);
-
-  // const insertDocuments = function(db, callback) {
-  //   // Get the documents collection
-  //   const collection = db.collection('documents');
-  //   // Insert some documents
-  //   collection.insertMany([
-  //     {a : 1}, {a : 2}, {a : 3}
-  //   ], function(err, result) {
-  //     assert.equal(err, null);
-  //     assert.equal(3, result.result.n);
-  //     assert.equal(3, result.ops.length);
-  //     console.log("Inserted 3 documents into the collection");
-  //     callback(result);
-  //   });
-  // }
-
   // client.close();
 });
 
@@ -48,13 +33,11 @@ const createLDAPServer = (db: any) => {
   const server: any = ldap.createServer();
 
   const findUsers: any = function(opts: any) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve: any, reject: any) => {
       const collection = db.collection('users');
       opts['isDeleted'] = false;
       collection.find(opts).toArray(function(err: any, docs: any) {
-        // assert.equal(err, null);
         if (err) reject(err);
-        // callback(docs);
         resolve(docs);
       });
     });
@@ -72,8 +55,21 @@ const createLDAPServer = (db: any) => {
       });
   };
 
+  const insertUser = function(opts: any) {
+    return new Promise((resolve: any, reject: any) => {
+      const collection = db.collection('users');
+      // Insert some documents
+      collection.insertMany(opts, (err: any, result: any) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(result);
+      });
+    });
+  };
+
   findClients((clients: any) => {
-    const loadAuthingUsers = (req: any, _res: any, next: any) => {
+    const loadCurrentClientId = (req: any, _res: any, next: any) => {
       req.currentClientId = '';
       const rdns: any = req.dn.rdns;
       for (let i = 0; i < rdns.length; i++) {
@@ -89,13 +85,13 @@ const createLDAPServer = (db: any) => {
 
     for (let i = 0; i < clients.length; i++) {
       const client = clients[i];
-      const SUFFIX: string = `o=${client._id}, ou=users, dc=authing, dc=cn`;
 
       let bindDN: string = `ou=users,o=${client._id},dc=authing,dc=cn`;
+      const SUFFIX: string = `o=${client._id}, ou=users, dc=authing, dc=cn`;
 
       /*
         DN = uid=LDAP_BINDING_USER（邮箱或者手机号）,ou=Users,o=AUTHING_CLINET_ID,dc=authing,dc=cn
-        ldapsearch -H ldap://localhost:1389 -x -D cn=root -LLL -b "o=authingId,ou=users,dc=authing,dc=cn" cn=root
+        ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" -LLL -b "o=59f86b4832eb28071bdd9214,ou=users,dc=authing,dc=cn" cn=18000179176
       */
 
       server.bind(bindDN, function(_req: any, res: any, next: any) {
@@ -112,9 +108,11 @@ const createLDAPServer = (db: any) => {
         return next();
       };
 
-      const pre: any = [authorize, loadAuthingUsers];
+      const pre: any = [authorize, loadCurrentClientId];
 
       server.search(SUFFIX, pre, async function(req: any, res: any, next: any) {
+        // ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -LLL -b "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn" cn=ldap-tester
+
         const filterKey: any = req.filter.attribute;
         const filterValue: any = req.filter.value;
 
@@ -131,7 +129,7 @@ const createLDAPServer = (db: any) => {
         if (filterKeyMapping[filterKey]) {
           const filterMapping: any = filterKeyMapping[filterKey];
           for (let i = 0; i < filterMapping.length; i++) {
-            const key = filterMapping[i];
+            const key: string = filterMapping[i];
             queryOptions[key] =
               key === '_id' ? ObjectId(filterValue) : filterValue;
 
@@ -139,19 +137,21 @@ const createLDAPServer = (db: any) => {
 
             if (users && users.length > 0) {
               const currentUser: any = users[0];
-              const cn =
+              const cn: any =
                 currentUser.username ||
                 currentUser.email ||
                 currentUser.phone ||
                 currentUser.unionid;
-              const dn = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
-                req.currentClientId
-              }, dc=authing, dc=cn`;
+              const dn: string = `cn=${cn},uid=${
+                currentUser._id
+              }, ou=users, o=${req.currentClientId}, dc=authing, dc=cn`;
               currentUser['cn'] = cn;
               currentUser['gid'] = currentUser._id;
               currentUser['uid'] = currentUser._id;
 
               delete currentUser['__v'];
+              delete currentUser['isDeleted'];
+              delete currentUser['salt'];
 
               res.send({
                 dn,
@@ -163,6 +163,51 @@ const createLDAPServer = (db: any) => {
             delete queryOptions[key];
           }
         }
+
+        res.end();
+        return next();
+      });
+
+      server.add(SUFFIX, pre, async function(req: any, res: any, next: any) {
+        // ldapadd -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -f ./user.ldif
+        const cn = req.dn.rdns[0].cn;
+        console.log(cn, req.dn.rdns[0]);
+        if (!req.dn.rdns[0].cn)
+          return next(new ldap.ConstraintViolationError('cn required'));
+
+        // return next(new ldap.EntryAlreadyExistsError(req.dn.toString()));
+
+        await insertUser({
+          username: cn,
+          nickname: cn,
+          unionid: cn,
+          isDeleted: false,
+          isBlocked: false,
+          createdAt: Date.now,
+          updatedAt: Date.now,
+          photo: 'https://usercontents.authing.cn/authing-avatar.png',
+          registerInClient: req.currentClientId,
+          registerMethod: 'sso:ldap-add',
+        });
+
+        res.end();
+        return next();
+      });
+
+      server.del(SUFFIX, pre, async function(req: any, res: any, next: any) {
+        // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn"
+        console.log(req.dn.rdns[0].cn);
+        if (!req.dn.rdns[0].cn) {
+          return next(new ldap.NoSuchObjectError(req.dn.toString()));
+        }
+
+        // const user = await findUsers({
+
+        // });
+
+        // !req.users[req.dn.rdns[0].cn]
+
+        // return next(new ldap.OperationsError(msg));
 
         res.end();
         return next();

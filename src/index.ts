@@ -47,12 +47,16 @@ MongoClient.connect(url, function(_err: any, client: any) {
 const createLDAPServer = (db: any) => {
   const server: any = ldap.createServer();
 
-  const findUsers: any = function(callback: any, opts: any) {
-    const collection = db.collection('users');
-    opts['isDeleted'] = false;
-    collection.find(opts).toArray(function(err: any, docs: any) {
-      assert.equal(err, null);
-      callback(docs);
+  const findUsers: any = function(opts: any) {
+    return new Promise((resolve, reject) => {
+      const collection = db.collection('users');
+      opts['isDeleted'] = false;
+      collection.find(opts).toArray(function(err: any, docs: any) {
+        // assert.equal(err, null);
+        if (err) reject(err);
+        // callback(docs);
+        resolve(docs);
+      });
     });
   };
 
@@ -70,61 +74,17 @@ const createLDAPServer = (db: any) => {
 
   findClients((clients: any) => {
     const loadAuthingUsers = (req: any, _res: any, next: any) => {
-      let currentClientId: string = '';
+      req.currentClientId = '';
       const rdns: any = req.dn.rdns;
       for (let i = 0; i < rdns.length; i++) {
         const rdn = rdns[i];
         for (let key in rdn.attrs) {
           if (key === 'o') {
-            currentClientId = rdn.attrs.o.value;
+            req.currentClientId = rdn.attrs.o.value;
           }
         }
       }
-
-      findUsers(
-        (users: any) => {
-          req.users = {};
-          for (var i = 0; i < users.length; i++) {
-            const currentUser: any = users[i];
-            req.users[currentUser._id] = {
-              dn: `cn=${currentUser.username ||
-                currentUser.email ||
-                currentUser.phone ||
-                currentUser.unionid},uid=${
-                currentUser._id
-              }, ou=users, o=${currentClientId}, dc=authing, dc=cn`,
-              attributes: {
-                cn:
-                  currentUser.username ||
-                  currentUser.email ||
-                  currentUser.phone ||
-                  currentUser.unionid,
-                uid: currentUser._id,
-                gid: currentUser._id,
-                unionid: currentUser.unionid,
-                email: currentUser.email,
-                phone: currentUser.phone,
-                nickname: currentUser.nickname,
-                username: currentUser.username,
-                photo: currentUser.photo,
-                emailVerified: currentUser.emailVerified,
-                oauth: currentUser.oauth,
-                token: currentUser.token,
-                registerInClient: currentUser.registerInClient,
-                loginsCount: currentUser.loginsCount,
-                lastIP: currentUser.lastIP,
-                company: currentUser.company,
-                objectclass: 'authingUser',
-              },
-            };
-          }
-
-          return next();
-        },
-        {
-          registerInClient: ObjectId(currentClientId),
-        }
-      );
+      return next();
     };
 
     for (let i = 0; i < clients.length; i++) {
@@ -154,11 +114,55 @@ const createLDAPServer = (db: any) => {
 
       const pre: any = [authorize, loadAuthingUsers];
 
-      server.search(SUFFIX, pre, function(req: any, res: any, next: any) {
-        Object.keys(req.users).forEach(function(k) {
-          if (req.filter.matches(req.users[k].attributes))
-            res.send(req.users[k]);
-        });
+      server.search(SUFFIX, pre, async function(req: any, res: any, next: any) {
+        const filterKey: any = req.filter.attribute;
+        const filterValue: any = req.filter.value;
+
+        const filterKeyMapping: any = {
+          cn: ['username', 'email', 'phone', 'unionid'],
+          gid: ['_id'],
+          uid: ['_id'],
+        };
+
+        let queryOptions: any = {
+          registerInClient: ObjectId(req.currentClientId),
+        };
+
+        if (filterKeyMapping[filterKey]) {
+          const filterMapping: any = filterKeyMapping[filterKey];
+          for (let i = 0; i < filterMapping.length; i++) {
+            const key = filterMapping[i];
+            queryOptions[key] =
+              key === '_id' ? ObjectId(filterValue) : filterValue;
+
+            const users: object[] = await findUsers(queryOptions);
+
+            if (users && users.length > 0) {
+              const currentUser: any = users[0];
+              const cn =
+                currentUser.username ||
+                currentUser.email ||
+                currentUser.phone ||
+                currentUser.unionid;
+              const dn = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
+                req.currentClientId
+              }, dc=authing, dc=cn`;
+              currentUser['cn'] = cn;
+              currentUser['gid'] = currentUser._id;
+              currentUser['uid'] = currentUser._id;
+
+              delete currentUser['__v'];
+
+              res.send({
+                dn,
+                attributes: currentUser,
+              });
+              break;
+            }
+
+            delete queryOptions[key];
+          }
+        }
 
         res.end();
         return next();

@@ -1,102 +1,97 @@
 const n = require('ldapjs'),
   e = require('mongodb').MongoClient,
-  o = require('mongodb').ObjectId,
-  t = require('./ldapdb.json'),
-  s = require('assert'),
+  t = require('mongodb').ObjectId,
+  o = require('./ldapdb.json'),
+  r = require('assert'),
   i = [
     'mongodb://',
-    t.user + ':' + t.password + '@',
-    t.ip,
+    o.user + ':' + o.password + '@',
+    o.ip,
     ':',
-    t.port,
+    o.port,
     '/',
-    t.dbname,
+    o.dbname,
   ].join('');
 e.connect(i, function(n, e) {
-  s.equal(null, n), console.log('Connected successfully to server');
-  const o = e.db(t.dbname);
-  r(o);
+  r.equal(null, n), console.log('Connected successfully to server');
+  const t = e.db(o.dbname);
+  c(t);
 });
-const r = e => {
-  const t = n.createServer();
-  !(function(n) {
-    const o = e.collection('userclients');
-    o.find({ isDeleted: !1 }).toArray(function(e, o) {
-      s.equal(e, null), n(o);
-    });
-  })(i => {
-    const r = (n, t, i) => {
-      let r = '';
-      const u = n.dn.rdns;
-      for (let n = 0; n < u.length; n++) {
-        const e = u[n];
-        for (let n in e.attrs) 'o' === n && (r = e.attrs.o.value);
-      }
-      !(function(n, o) {
-        const t = e.collection('users');
-        (o.isDeleted = !1),
-          t.find(o).toArray(function(e, o) {
-            s.equal(e, null), n(o);
+const c = e => {
+  const o = n.createServer(),
+    i = function(n) {
+      return new Promise((t, o) => {
+        const r = e.collection('users');
+        (n.isDeleted = !1),
+          r.find(n).toArray(function(n, e) {
+            n && o(n), t(e);
           });
-      })(
-        e => {
-          n.users = {};
-          for (var o = 0; o < e.length; o++) {
-            const t = e[o];
-            n.users[t._id] = {
-              dn: `cn=${t.username || t.email || t.phone || t.unionid},uid=${
-                t._id
-              }, ou=users, o=${r}, dc=authing, dc=cn`,
-              attributes: {
-                cn: t.username || t.email || t.phone || t.unionid,
-                uid: t._id,
-                gid: t._id,
-                unionid: t.unionid,
-                email: t.email,
-                phone: t.phone,
-                nickname: t.nickname,
-                username: t.username,
-                photo: t.photo,
-                emailVerified: t.emailVerified,
-                oauth: t.oauth,
-                token: t.token,
-                registerInClient: t.registerInClient,
-                loginsCount: t.loginsCount,
-                lastIP: t.lastIP,
-                company: t.company,
-                objectclass: 'authingUser',
-              },
-            };
-          }
-          return i();
-        },
-        { registerInClient: o(r) }
-      );
+      });
     };
-    for (let e = 0; e < i.length; e++) {
-      const o = i[e],
-        s = `o=${o._id}, ou=users, dc=authing, dc=cn`;
-      let u = `ou=users,o=${o._id},dc=authing,dc=cn`;
-      t.bind(u, function(n, e, o) {
+  !(function(n) {
+    const t = e.collection('userclients');
+    t.find({ isDeleted: !1 }).toArray(function(e, t) {
+      r.equal(e, null), n(t);
+    });
+  })(e => {
+    const r = (n, e, t) => {
+      n.currentClientId = '';
+      const o = n.dn.rdns;
+      for (let e = 0; e < o.length; e++) {
+        const t = o[e];
+        for (let e in t.attrs)
+          'o' === e && (n.currentClientId = t.attrs.o.value);
+      }
+      return t();
+    };
+    for (let c = 0; c < e.length; c++) {
+      const s = e[c],
+        u = `o=${s._id}, ou=users, dc=authing, dc=cn`;
+      let d = `ou=users,o=${s._id},dc=authing,dc=cn`;
+      o.bind(d, function(n, e, t) {
+        return e.end(), t();
+      });
+      const l = (e, t, o) =>
+          e.connection.ldap.bindDN.equals(d)
+            ? o()
+            : o(new n.InsufficientAccessRightsError()),
+        a = [l, r];
+      o.search(u, a, async function(n, e, o) {
+        const r = n.filter.attribute,
+          c = n.filter.value,
+          s = {
+            cn: ['username', 'email', 'phone', 'unionid'],
+            gid: ['_id'],
+            uid: ['_id'],
+          };
+        let u = { registerInClient: t(n.currentClientId) };
+        if (s[r]) {
+          const o = s[r];
+          for (let r = 0; r < o.length; r++) {
+            const s = o[r];
+            u[s] = '_id' === s ? t(c) : c;
+            const d = await i(u);
+            if (d && d.length > 0) {
+              const t = d[0],
+                o = t.username || t.email || t.phone || t.unionid,
+                r = `cn=${o},uid=${t._id}, ou=users, o=${
+                  n.currentClientId
+                }, dc=authing, dc=cn`;
+              (t.cn = o),
+                (t.gid = t._id),
+                (t.uid = t._id),
+                delete t.__v,
+                e.send({ dn: r, attributes: t });
+              break;
+            }
+            delete u[s];
+          }
+        }
         return e.end(), o();
       });
-      const c = (e, o, t) =>
-          e.connection.ldap.bindDN.equals(u)
-            ? t()
-            : t(new n.InsufficientAccessRightsError()),
-        l = [c, r];
-      t.search(s, l, function(n, e, o) {
-        return (
-          Object.keys(n.users).forEach(function(o) {
-            n.filter.matches(n.users[o].attributes) && e.send(n.users[o]);
-          }),
-          e.end(),
-          o()
-        );
-      });
     }
-    t.listen(1389, function() {
-      console.log('LDAP server up at: %s', t.url);
+    o.listen(1389, function() {
+      console.log('LDAP server up at: %s', o.url);
     });
   });
 };

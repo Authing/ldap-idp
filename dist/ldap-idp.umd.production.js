@@ -7,7 +7,7 @@
     t = require('mongodb').ObjectId,
     o = require('./ldapdb.json'),
     i = require('assert'),
-    s = [
+    r = [
       'mongodb://',
       o.user + ':' + o.password + '@',
       o.ip,
@@ -16,87 +16,82 @@
       '/',
       o.dbname,
     ].join('');
-  e.connect(s, function(n, e) {
+  e.connect(r, function(n, e) {
     i.equal(null, n), console.log('Connected successfully to server');
     const t = e.db(o.dbname);
-    r(t);
+    c(t);
   });
-  const r = e => {
-    const o = n.createServer();
+  const c = e => {
+    const o = n.createServer(),
+      r = function(n) {
+        return new Promise((t, o) => {
+          const i = e.collection('users');
+          (n.isDeleted = !1),
+            i.find(n).toArray(function(n, e) {
+              n && o(n), t(e);
+            });
+        });
+      };
     !(function(n) {
       const t = e.collection('userclients');
       t.find({ isDeleted: !1 }).toArray(function(e, t) {
         i.equal(e, null), n(t);
       });
-    })(s => {
-      const r = (n, o, s) => {
-        let r = '';
-        const u = n.dn.rdns;
-        for (let n = 0; n < u.length; n++) {
-          const e = u[n];
-          for (let n in e.attrs) 'o' === n && (r = e.attrs.o.value);
+    })(e => {
+      const i = (n, e, t) => {
+        n.currentClientId = '';
+        const o = n.dn.rdns;
+        for (let e = 0; e < o.length; e++) {
+          const t = o[e];
+          for (let e in t.attrs)
+            'o' === e && (n.currentClientId = t.attrs.o.value);
         }
-        !(function(n, t) {
-          const o = e.collection('users');
-          (t.isDeleted = !1),
-            o.find(t).toArray(function(e, t) {
-              i.equal(e, null), n(t);
-            });
-        })(
-          e => {
-            n.users = {};
-            for (var t = 0; t < e.length; t++) {
-              const o = e[t];
-              n.users[o._id] = {
-                dn: `cn=${o.username || o.email || o.phone || o.unionid},uid=${
-                  o._id
-                }, ou=users, o=${r}, dc=authing, dc=cn`,
-                attributes: {
-                  cn: o.username || o.email || o.phone || o.unionid,
-                  uid: o._id,
-                  gid: o._id,
-                  unionid: o.unionid,
-                  email: o.email,
-                  phone: o.phone,
-                  nickname: o.nickname,
-                  username: o.username,
-                  photo: o.photo,
-                  emailVerified: o.emailVerified,
-                  oauth: o.oauth,
-                  token: o.token,
-                  registerInClient: o.registerInClient,
-                  loginsCount: o.loginsCount,
-                  lastIP: o.lastIP,
-                  company: o.company,
-                  objectclass: 'authingUser',
-                },
-              };
-            }
-            return s();
-          },
-          { registerInClient: t(r) }
-        );
+        return t();
       };
-      for (let e = 0; e < s.length; e++) {
-        const t = s[e],
-          i = `o=${t._id}, ou=users, dc=authing, dc=cn`;
-        let u = `ou=users,o=${t._id},dc=authing,dc=cn`;
-        o.bind(u, function(n, e, t) {
+      for (let c = 0; c < e.length; c++) {
+        const s = e[c],
+          u = `o=${s._id}, ou=users, dc=authing, dc=cn`;
+        let d = `ou=users,o=${s._id},dc=authing,dc=cn`;
+        o.bind(d, function(n, e, t) {
           return e.end(), t();
         });
-        const c = (e, t, o) =>
-            e.connection.ldap.bindDN.equals(u)
+        const l = (e, t, o) =>
+            e.connection.ldap.bindDN.equals(d)
               ? o()
               : o(new n.InsufficientAccessRightsError()),
-          l = [c, r];
-        o.search(i, l, function(n, e, t) {
-          return (
-            Object.keys(n.users).forEach(function(t) {
-              n.filter.matches(n.users[t].attributes) && e.send(n.users[t]);
-            }),
-            e.end(),
-            t()
-          );
+          a = [l, i];
+        o.search(u, a, async function(n, e, o) {
+          const i = n.filter.attribute,
+            c = n.filter.value,
+            s = {
+              cn: ['username', 'email', 'phone', 'unionid'],
+              gid: ['_id'],
+              uid: ['_id'],
+            };
+          let u = { registerInClient: t(n.currentClientId) };
+          if (s[i]) {
+            const o = s[i];
+            for (let i = 0; i < o.length; i++) {
+              const s = o[i];
+              u[s] = '_id' === s ? t(c) : c;
+              const d = await r(u);
+              if (d && d.length > 0) {
+                const t = d[0],
+                  o = t.username || t.email || t.phone || t.unionid,
+                  i = `cn=${o},uid=${t._id}, ou=users, o=${
+                    n.currentClientId
+                  }, dc=authing, dc=cn`;
+                (t.cn = o),
+                  (t.gid = t._id),
+                  (t.uid = t._id),
+                  delete t.__v,
+                  e.send({ dn: i, attributes: t });
+                break;
+              }
+              delete u[s];
+            }
+          }
+          return e.end(), o();
         });
       }
       o.listen(1389, function() {

@@ -1,6 +1,75 @@
-# TSDX Bootstrap
+# LDAP IdP
 
-This project was bootstrapped with [TSDX](https://github.com/jaredpalmer/tsdx).
+An LDAP IdP compatible with [Authing](https://authing.cn).
+
+## 使用方法
+
+| Hostname                | ldap.authing.cn                                                      |
+| ----------------------- | -------------------------------------------------------------------- |
+| URI/Port                | ldap://ldap.authing.cn:1389                                          |
+| LDAP Distinguished Name | cn=AUTHING_USERNAME, ou=users,o=AUTHING_CLINET_ID, dc=authing, dc=cn |
+| BaseDN                  | o=AUTHING_CLINET_ID, ou=users, dc=authing, dc=cn                     |
+
+### 认证方式
+
+访问 LDAP 服务器需要使用 Authing 的应用 Secret，如下所示：
+
+```shell
+$ ldapsearch -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,dc=authing,dc=cn" -w "AUTHING_CLIEENT_SECRET"  -LLL -b "o=AUTHING_CLIENT_ID,ou=users,dc=authing,dc=cn"
+```
+
+若 Secret 不正确会返回如下信息：
+
+```shell
+ldap_bind: Invalid credentials (49)
+	matched DN: ou=users, o=AUTHING_CLIENT_ID, dc=authing, dc=cn
+	additional info: InvalidCredentialsError
+```
+
+### Search
+
+```shell
+$ ldapsearch -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,dc=authing,dc=cn" -w "AUTHING_CLIEENT_SECRET"  -LLL -b "o=AUTHING_CLIENT_ID,ou=users,dc=authing,dc=cn"
+```
+
+### Add
+
+创建一个名为 `user.ldif` 的文件然后复制以下内容进去：
+
+```
+dn: cn=authingUserName, o=AUTHING_CLIENT_ID, ou=users, dc=authing, dc=cn
+objectClass: users
+cn: authingUserName
+```
+
+然后执行以下命令：
+
+```shell
+$ ldapadd -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,dc=authing,dc=cn" -w "AUTHING_CLIEENT_SECRET" -f ./user.ldif
+```
+
+### Modify
+
+创建一个名为 `modify.ldif` 的文件然后复制以下内容进去：
+
+```
+dn: cn=secret, o=AUTHING_CLIENT_ID, ou=users, dc=authing, dc=cn
+changetype: replace
+replace: userPassword
+userPassword: 18000179178
+```
+
+然后执行以下命令：
+
+```shell
+$ ldapmodify -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,dc=authing,dc=cn" -w "AUTHING_CLIEENT_SECRET" -f ./modify.ldif
+```
+
+### Delete
+
+```shell
+$ ldapdelete -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,dc=authing,dc=cn" -w "AUTHING_CLIEENT_SECRET" "cn=ldapjs, o=AUTHING_CLIENT_ID, ou=users, dc=authing,dc=cn"
+```
 
 ## Local Development
 

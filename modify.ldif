@@ -1,0 +1,4 @@
+dn: cn=secret, o=5c344f102e450b000170190a, ou=users, dc=authing, dc=cn
+changetype: modify
+replace: phone
+phone: 18000179178

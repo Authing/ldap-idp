@@ -76,6 +76,21 @@ const createLDAPServer = (db: any) => {
     });
   };
 
+  // const updateUser: any = function(query: any, set: any) {
+  //   return new Promise((_resolve: any, _reject: any) => {
+  //     const collection = db.collection('users');
+  //     query['isDeleted'] = false;
+  //     collection.updateOne(query, set);
+  //     findUsers(query)
+  //       .then((users: any) => {
+  //         _resolve(users);
+  //       })
+  //       .catch((err: any) => {
+  //         _reject(err);
+  //       });
+  //   });
+  // };
+
   findClients((clients: any) => {
     const loadCurrentClientId = (req: any, _res: any, next: any) => {
       req.currentClientId = '';
@@ -125,7 +140,7 @@ const createLDAPServer = (db: any) => {
         const filterValue: any = req.filter.value;
 
         const filterKeyMapping: any = {
-          cn: ['username', 'email', 'phone', 'unionid'],
+          cn: ['username', 'unionid'],
           gid: ['_id'],
           uid: ['_id'],
         };
@@ -145,11 +160,7 @@ const createLDAPServer = (db: any) => {
 
             if (users && users.length > 0) {
               const currentUser: any = users[0];
-              const cn: any =
-                currentUser.username ||
-                currentUser.email ||
-                currentUser.phone ||
-                currentUser.unionid;
+              const cn: any = currentUser.username || currentUser.unionid;
               const dn: string = `cn=${cn},uid=${
                 currentUser._id
               }, ou=users, o=${req.currentClientId}, dc=authing, dc=cn`;
@@ -185,7 +196,7 @@ const createLDAPServer = (db: any) => {
         const users = await findUsers({
           registerInClient: ObjectId(req.currentClientId),
           isDeleted: false,
-          unionid: cn.value,
+          username: cn.value,
         });
 
         if (users && users.length > 0) {
@@ -201,7 +212,7 @@ const createLDAPServer = (db: any) => {
           await authing.register({
             username: cn.value,
             nickname: cn.value,
-            unionid: cn.value,
+            unionid: `ldap|${cn.value}`,
             registerMethod: 'sso:ldap-add',
           });
         } catch (error) {
@@ -221,7 +232,7 @@ const createLDAPServer = (db: any) => {
         const users = await findUsers({
           registerInClient: ObjectId(req.currentClientId),
           isDeleted: false,
-          unionid: cn.value,
+          username: cn.value,
         });
 
         if (!users || users.length === 0) {
@@ -231,10 +242,105 @@ const createLDAPServer = (db: any) => {
         try {
           await removeUser({
             registerInClient: ObjectId(req.currentClientId),
-            unionid: cn.value,
+            username: cn.value,
           });
         } catch (error) {
           return next(new ldap.UnavailableError(error.toString()));
+        }
+
+        res.end();
+        return next();
+      });
+
+      server.modify(SUFFIX, pre, async function(req: any, res: any, next: any) {
+        // ldapmodify -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -f ./modify.ldif
+        const cn: any = req.dn.rdns[0].attrs.cn;
+        if (!req.dn.rdns[0].attrs.cn)
+          return next(new ldap.NoSuchObjectError(req.dn.toString()));
+
+        if (!req.changes.length)
+          return next(new ldap.ProtocolError('changes required'));
+
+        const users: any = await findUsers({
+          registerInClient: ObjectId(req.currentClientId),
+          isDeleted: false,
+          username: cn.value,
+        });
+
+        if (!users || users.length === 0) {
+          return next(new ldap.NoSuchObjectError(req.dn.toString()));
+        }
+
+        const user: any = users[0];
+
+        let mod: any, authing: any;
+
+        for (var i = 0; i < req.changes.length; i++) {
+          mod = req.changes[i].modification;
+          switch (req.changes[i].operation) {
+            case 'replace':
+              const typeMapping: any = {
+                userpassword: 'password',
+                mail: 'email',
+                cn: ['username'],
+              };
+
+              const notAllowedTypes = ['gid', 'uid', '_id'];
+
+              if (notAllowedTypes.indexOf(mod.type) > -1) {
+                return next(
+                  new ldap.UnwillingToPerformError(
+                    `${mod.type} is not allowed to modify`
+                  )
+                );
+              }
+
+              let fieldModified: any = mod.type;
+
+              if (typeMapping[mod.type]) {
+                fieldModified = typeMapping[mod.type];
+              }
+
+              try {
+                authing =
+                  authing ||
+                  (await new Authing({
+                    clientId: req.currentClientId,
+                    secret: '03bb8b2fca823137c7dec63fd0029fc2',
+                  }));
+
+                if (
+                  fieldModified instanceof String ||
+                  typeof fieldModified === 'string'
+                ) {
+                  let query: any = {
+                    _id: user._id,
+                  };
+                  const field: any = fieldModified;
+                  query[field] = mod.vals[0];
+                  await authing.update(query);
+                } else {
+                  let query: any = {
+                    _id: users[0]._id,
+                  };
+                  for (let i = 0; i < fieldModified.length; i++) {
+                    query[fieldModified[i]] = mod.vals[0];
+                  }
+                  await authing.update(query);
+                }
+              } catch (error) {
+                return next(new ldap.UnavailableError(error.toString()));
+              }
+              break;
+            case 'add':
+              return next(
+                new ldap.UnwillingToPerformError('only replace allowed')
+              );
+            case 'delete':
+              return next(
+                new ldap.UnwillingToPerformError('only replace allowed')
+              );
+          }
         }
 
         res.end();

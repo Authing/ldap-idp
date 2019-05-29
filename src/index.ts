@@ -57,6 +57,25 @@ const createLDAPServer = (db: any) => {
       });
   };
 
+  const removeUser: any = function(query: any) {
+    return new Promise((_resolve: any, _reject: any) => {
+      const collection = db.collection('users');
+      query['isDeleted'] = false;
+      collection.updateOne(query, {
+        $set: {
+          isDeleted: true,
+        },
+      });
+      findUsers(query)
+        .then((users: any) => {
+          _resolve(users);
+        })
+        .catch((err: any) => {
+          _reject(err);
+        });
+    });
+  };
+
   findClients((clients: any) => {
     const loadCurrentClientId = (req: any, _res: any, next: any) => {
       req.currentClientId = '';
@@ -194,19 +213,29 @@ const createLDAPServer = (db: any) => {
       });
 
       server.del(SUFFIX, pre, async function(req: any, res: any, next: any) {
-        // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn"
-        console.log(req.dn.rdns[0].cn);
-        if (!req.dn.rdns[0].cn) {
+        // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" "cn=ldapjs, o=5c344f102e450b000170190a, ou=users, dc=authing,dc=cn"
+        const cn = req.dn.rdns[0].attrs.cn;
+        if (!req.dn.rdns[0].attrs.cn)
+          return next(new ldap.NoSuchObjectError(req.dn.toString()));
+
+        const users = await findUsers({
+          registerInClient: ObjectId(req.currentClientId),
+          isDeleted: false,
+          unionid: cn.value,
+        });
+
+        if (!users || users.length === 0) {
           return next(new ldap.NoSuchObjectError(req.dn.toString()));
         }
 
-        // const user = await findUsers({
-
-        // });
-
-        // !req.users[req.dn.rdns[0].cn]
-
-        // return next(new ldap.OperationsError(msg));
+        try {
+          await removeUser({
+            registerInClient: ObjectId(req.currentClientId),
+            unionid: cn.value,
+          });
+        } catch (error) {
+          return next(new ldap.UnavailableError(error.toString()));
+        }
 
         res.end();
         return next();

@@ -38,8 +38,8 @@
       t.find({ isDeleted: !1 }).toArray(function(e, t) {
         i.equal(e, null), n(t);
       });
-    })(e => {
-      const i = (n, e, t) => {
+    })(i => {
+      const s = (n, e, t) => {
         n.currentClientId = '';
         const r = n.dn.rdns;
         for (let e = 0; e < r.length; e++) {
@@ -49,19 +49,19 @@
         }
         return t();
       };
-      for (let s = 0; s < e.length; s++) {
-        const d = e[s];
-        let u = `ou=users,o=${d._id},dc=authing,dc=cn`;
-        const l = `o=${d._id}, ou=users, dc=authing, dc=cn`;
-        r.bind(u, function(n, e, t) {
+      for (let d = 0; d < i.length; d++) {
+        const u = i[d];
+        let l = `ou=users,o=${u._id},dc=authing,dc=cn`;
+        const a = `o=${u._id}, ou=users, dc=authing, dc=cn`;
+        r.bind(l, function(n, e, t) {
           return e.end(), t();
         });
-        const a = (e, t, r) =>
-            e.connection.ldap.bindDN.equals(u)
+        const f = (e, t, r) =>
+            e.connection.ldap.bindDN.equals(l)
               ? r()
               : r(new n.InsufficientAccessRightsError()),
-          f = [a, i];
-        r.search(l, f, async function(n, e, r) {
+          g = [f, s];
+        r.search(a, g, async function(n, e, r) {
           const i = n.filter.attribute,
             o = n.filter.value,
             s = {
@@ -96,7 +96,7 @@
           }
           return e.end(), r();
         }),
-          r.add(l, f, async function(e, r, i) {
+          r.add(a, g, async function(e, r, i) {
             const s = e.dn.rdns[0].attrs.cn;
             if (!e.dn.rdns[0].attrs.cn)
               return i(new n.ConstraintViolationError('cn required'));
@@ -123,13 +123,39 @@
             }
             return r.end(), i();
           }),
-          r.del(l, f, async function(e, t, r) {
-            return (
-              console.log(e.dn.rdns[0].cn),
-              e.dn.rdns[0].cn
-                ? (t.end(), r())
-                : r(new n.NoSuchObjectError(e.dn.toString()))
-            );
+          r.del(a, g, async function(r, i, o) {
+            const s = r.dn.rdns[0].attrs.cn;
+            if (!r.dn.rdns[0].attrs.cn)
+              return o(new n.NoSuchObjectError(r.dn.toString()));
+            const d = await c({
+              registerInClient: t(r.currentClientId),
+              isDeleted: !1,
+              unionid: s.value,
+            });
+            if (!d || 0 === d.length)
+              return o(new n.NoSuchObjectError(r.dn.toString()));
+            try {
+              await ((u = {
+                registerInClient: t(r.currentClientId),
+                unionid: s.value,
+              }),
+              new Promise((n, t) => {
+                const r = e.collection('users');
+                (u.isDeleted = !1),
+                  r.updateOne(u, { $set: { isDeleted: !0 } }),
+                  c(u)
+                    .then(e => {
+                      n(e);
+                    })
+                    .catch(n => {
+                      t(n);
+                    });
+              }));
+            } catch (e) {
+              return o(new n.UnavailableError(e.toString()));
+            }
+            var u;
+            return i.end(), o();
           });
       }
       r.listen(1389, function() {

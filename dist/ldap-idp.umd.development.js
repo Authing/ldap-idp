@@ -76,6 +76,25 @@
         });
     };
 
+    const removeUser = function(query) {
+      return new Promise((_resolve, _reject) => {
+        const collection = db.collection('users');
+        query['isDeleted'] = false;
+        collection.updateOne(query, {
+          $set: {
+            isDeleted: true,
+          },
+        });
+        findUsers(query)
+          .then(users => {
+            _resolve(users);
+          })
+          .catch(err => {
+            _reject(err);
+          });
+      });
+    };
+
     findClients(clients => {
       const loadCurrentClientId = (req, _res, next) => {
         req.currentClientId = '';
@@ -203,15 +222,28 @@
           return next();
         });
         server.del(SUFFIX, pre, async function(req, res, next) {
-          // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn"
-          console.log(req.dn.rdns[0].cn);
-
-          if (!req.dn.rdns[0].cn) {
+          // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" "cn=ldapjs, o=5c344f102e450b000170190a, ou=users, dc=authing,dc=cn"
+          const cn = req.dn.rdns[0].attrs.cn;
+          if (!req.dn.rdns[0].attrs.cn)
             return next(new ldap.NoSuchObjectError(req.dn.toString()));
-          } // const user = await findUsers({
-          // });
-          // !req.users[req.dn.rdns[0].cn]
-          // return next(new ldap.OperationsError(msg));
+          const users = await findUsers({
+            registerInClient: ObjectId(req.currentClientId),
+            isDeleted: false,
+            unionid: cn.value,
+          });
+
+          if (!users || users.length === 0) {
+            return next(new ldap.NoSuchObjectError(req.dn.toString()));
+          }
+
+          try {
+            await removeUser({
+              registerInClient: ObjectId(req.currentClientId),
+              unionid: cn.value,
+            });
+          } catch (error) {
+            return next(new ldap.UnavailableError(error.toString()));
+          }
 
           res.end();
           return next();

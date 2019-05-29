@@ -164,7 +164,8 @@
         server.search(SUFFIX, pre, async function(req, res, next) {
           // ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" -LLL -b "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn" cn=ldap-tester
           const filterKey = req.filter.attribute;
-          const filterValue = req.filter.value || '*';
+          const filterValue = req.filter.value || '*'; // const queryDN = req.dn.toString();
+
           const filterKeyMapping = {
             cn: 'username',
             gid: '_id',
@@ -213,48 +214,15 @@
               delete currentUser['__v'];
               delete currentUser['isDeleted'];
               delete currentUser['salt'];
-              req.users[currentUser._id] = {
+              req.users[dn] = {
                 dn,
                 attributes: currentUser,
               };
-              let scopeCheck;
-
-              switch (req.scope) {
-                case 'base':
-                  if (req.filter.matches(db[dn])) {
-                    res.send({
-                      dn: dn,
-                      attributes: db[dn],
-                    });
-                  }
-
-                  res.end();
-                  return next();
-
-                case 'one':
-                  scopeCheck = function(k) {
-                    if (req.dn.equals(k)) return true;
-                    var parent = ldap.parseDN(k).parent();
-                    return parent ? parent.equals(req.dn) : false;
-                  };
-
-                  break;
-
-                case 'sub':
-                  scopeCheck = function(k) {
-                    return req.dn.equals(k) || req.dn.parentOf(k);
-                  };
-
-                  break;
-              }
-
               Object.keys(req.users).forEach(function(key) {
-                if (!scopeCheck(key)) return;
-
-                if (req.filter.matches(req.users[key])) {
+                if (req.filter.matches(req.users[key].attributes)) {
                   res.send(req.users[key]);
                 }
-              }); // console.log(req.users);
+              });
             }
           }
 

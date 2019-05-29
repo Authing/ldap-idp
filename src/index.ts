@@ -150,6 +150,8 @@ const createLDAPServer = (db: any) => {
         const filterKey: any = req.filter.attribute;
         const filterValue: any = req.filter.value || '*';
 
+        // const queryDN = req.dn.toString();
+
         const filterKeyMapping: any = {
           cn: 'username',
           gid: '_id',
@@ -203,51 +205,16 @@ const createLDAPServer = (db: any) => {
             delete currentUser['isDeleted'];
             delete currentUser['salt'];
 
-            req.users[currentUser._id] = {
+            req.users[dn] = {
               dn,
               attributes: currentUser,
             };
 
-            let scopeCheck: any;
-
-            switch (req.scope) {
-              case 'base':
-                if (req.filter.matches(db[dn])) {
-                  res.send({
-                    dn: dn,
-                    attributes: db[dn],
-                  });
-                }
-
-                res.end();
-                return next();
-
-              case 'one':
-                scopeCheck = function(k: any) {
-                  if (req.dn.equals(k)) return true;
-
-                  var parent = ldap.parseDN(k).parent();
-                  return parent ? parent.equals(req.dn) : false;
-                };
-                break;
-
-              case 'sub':
-                scopeCheck = function(k: any) {
-                  return req.dn.equals(k) || req.dn.parentOf(k);
-                };
-
-                break;
-            }
-
             Object.keys(req.users).forEach(function(key) {
-              if (!scopeCheck(key)) return;
-
-              if (req.filter.matches(req.users[key])) {
+              if (req.filter.matches(req.users[key].attributes)) {
                 res.send(req.users[key]);
               }
             });
-
-            // console.log(req.users);
           }
         }
 

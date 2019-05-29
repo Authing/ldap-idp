@@ -159,7 +159,7 @@ const createLDAPServer = db => {
 
       const pre = [authorize, loadCurrentClientId];
       server.search(SUFFIX, pre, async function(req, res, next) {
-        // ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -LLL -b "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn" cn=ldap-tester
+        // ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" -LLL -b "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn" cn=ldap-tester
         const filterKey = req.filter.attribute;
         const filterValue = req.filter.value || '*';
         const filterKeyMapping = {
@@ -259,7 +259,7 @@ const createLDAPServer = db => {
         return next();
       });
       server.add(SUFFIX, pre, async function(req, res, next) {
-        // ldapadd -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -f ./user.ldif
+        // ldapadd -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" -f ./user.ldif
         const cn = req.dn.rdns[0].attrs.cn;
         if (!req.dn.rdns[0].attrs.cn)
           return next(new ldap.ConstraintViolationError('cn required'));
@@ -292,7 +292,7 @@ const createLDAPServer = db => {
         return next();
       });
       server.del(SUFFIX, pre, async function(req, res, next) {
-        // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" "cn=ldapjs, o=5c344f102e450b000170190a, ou=users, dc=authing,dc=cn"
+        // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" "cn=ldapjs, o=5c344f102e450b000170190a, ou=users, dc=authing,dc=cn"
         const cn = req.dn.rdns[0].attrs.cn;
         if (!req.dn.rdns[0].attrs.cn)
           return next(new ldap.NoSuchObjectError(req.dn.toString()));
@@ -319,7 +319,7 @@ const createLDAPServer = db => {
         return next();
       });
       server.modify(SUFFIX, pre, async function(req, res, next) {
-        // ldapmodify -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -f ./modify.ldif
+        // ldapmodify -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" -f ./modify.ldif
         const cn = req.dn.rdns[0].attrs.cn;
         if (!req.dn.rdns[0].attrs.cn)
           return next(new ldap.NoSuchObjectError(req.dn.toString()));

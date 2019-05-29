@@ -1,0 +1,5 @@
+dn: cn=ldapjs, ou=users, o=myhost
+objectClass: unixUser
+cn: ldapjs
+shell: /bin/bash
+description: Created via ldapadd

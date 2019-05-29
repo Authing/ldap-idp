@@ -35,6 +35,7 @@
     "typescript": "^3.4.5"
   },
   "dependencies": {
+    "authing-js-sdk": "^2.1.0",
     "ldapjs": "^1.0.2",
     "mongodb": "^3.2.4"
   }

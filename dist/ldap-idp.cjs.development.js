@@ -22,7 +22,11 @@ const ldapdb =
 
 const assert =
   /*#__PURE__*/
-  require('assert'); // Connection URL
+  require('assert');
+
+const Authing =
+  /*#__PURE__*/
+  require('authing-js-sdk'); // Connection URL
 
 const url =
   /*#__PURE__*/
@@ -67,20 +71,6 @@ const createLDAPServer = db => {
         assert.equal(err, null);
         callback(docs);
       });
-  };
-
-  const insertUser = function(opts) {
-    return new Promise((resolve, reject) => {
-      const collection = db.collection('users'); // Insert some documents
-
-      collection.insertMany(opts, (err, result) => {
-        if (err) {
-          reject(err);
-        }
-
-        resolve(result);
-      });
-    });
   };
 
   findClients(clients => {
@@ -178,23 +168,34 @@ const createLDAPServer = db => {
       });
       server.add(SUFFIX, pre, async function(req, res, next) {
         // ldapadd -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -f ./user.ldif
-        const cn = req.dn.rdns[0].cn;
-        console.log(cn, req.dn.rdns[0]);
-        if (!req.dn.rdns[0].cn)
-          return next(new ldap.ConstraintViolationError('cn required')); // return next(new ldap.EntryAlreadyExistsError(req.dn.toString()));
-
-        await insertUser({
-          username: cn,
-          nickname: cn,
-          unionid: cn,
+        const cn = req.dn.rdns[0].attrs.cn;
+        if (!req.dn.rdns[0].attrs.cn)
+          return next(new ldap.ConstraintViolationError('cn required'));
+        const users = await findUsers({
+          registerInClient: ObjectId(req.currentClientId),
           isDeleted: false,
-          isBlocked: false,
-          createdAt: Date.now,
-          updatedAt: Date.now,
-          photo: 'https://usercontents.authing.cn/authing-avatar.png',
-          registerInClient: req.currentClientId,
-          registerMethod: 'sso:ldap-add',
+          unionid: cn.value,
         });
+
+        if (users && users.length > 0) {
+          return next(new ldap.EntryAlreadyExistsError(req.dn.toString()));
+        }
+
+        try {
+          const authing = await new Authing({
+            clientId: req.currentClientId,
+            secret: '03bb8b2fca823137c7dec63fd0029fc2',
+          });
+          await authing.register({
+            username: cn.value,
+            nickname: cn.value,
+            unionid: cn.value,
+            registerMethod: 'sso:ldap-add',
+          });
+        } catch (error) {
+          return next(new ldap.UnavailableError(error.toString()));
+        }
+
         res.end();
         return next();
       });

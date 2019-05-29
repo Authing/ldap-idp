@@ -68,7 +68,7 @@ $ ldapmodify -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,
 ### Delete
 
 ```shell
-$ ldapdelete -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,dc=authing,dc=cn" -w "AUTHING_CLIEENT_SECRET" "cn=ldapjs, o=AUTHING_CLIENT_ID, ou=users, dc=authing,dc=cn"
+$ ldapdelete -H ldap://ldap.authing.cn:1389 -x -D "ou=users,o=AUTHING_CLIENT_ID,dc=authing,dc=cn" -w "AUTHING_CLIEENT_SECRET" "cn=authingUserName, o=AUTHING_CLIENT_ID, ou=users, dc=authing,dc=cn"
 ```
 
 ## Local Development

@@ -49,12 +49,20 @@
         }
         return t();
       };
-      for (let d = 0; d < s.length; d++) {
-        const a = s[d];
-        let u = `ou=users,o=${a._id},dc=authing,dc=cn`;
-        const l = `o=${a._id}, ou=users, dc=authing, dc=cn`;
-        r.bind(u, function(e, n, t) {
-          return n.end(), t();
+      for (let a = 0; a < s.length; a++) {
+        const d = s[a];
+        let u = `ou=users,o=${d._id},dc=authing,dc=cn`;
+        const l = `o=${d._id}, ou=users, dc=authing, dc=cn`;
+        r.bind(u, async function(n, t, r) {
+          const s = n.dn.rdns[1].attrs;
+          let i;
+          return (
+            s.o && (i = s.o.value),
+            i.toString() !== d._id.toString() ||
+            n.credentials.toString() !== d.secret.toString()
+              ? r(new e.InvalidCredentialsError())
+              : (t.end(), r())
+          );
         });
         const f = (n, t, r) =>
             n.connection.ldap.bindDN.equals(u)
@@ -63,13 +71,13 @@
           g = [f, o];
         r.search(l, g, async function(r, s, i) {
           const o = r.filter.attribute,
-            d = r.filter.value || '*',
-            a = { cn: 'username', gid: '_id', uid: '_id' };
+            a = r.filter.value || '*',
+            d = { cn: 'username', gid: '_id', uid: '_id' };
           let u,
             l = { registerInClient: t(r.currentClientId) };
-          if (((r.users = {}), a[o])) {
-            const e = a[o];
-            (l[e] = '_id' === e ? t(d) : d), (u = await c(l));
+          if (((r.users = {}), d[o])) {
+            const e = d[o];
+            (l[e] = '_id' === e ? t(a) : a), (u = await c(l));
             const n = u[0],
               i = n.username,
               f = `cn=${i},uid=${n._id}, ou=users, o=${
@@ -91,7 +99,7 @@
                 o = `cn=${c},uid=${t._id}, ou=users, o=${
                   r.currentClientId
                 }, dc=authing, dc=cn`;
-              let d;
+              let a;
               switch (
                 ((t.cn = c),
                 (t.gid = t._id),
@@ -111,19 +119,19 @@
                     i()
                   );
                 case 'one':
-                  d = function(n) {
+                  a = function(n) {
                     if (r.dn.equals(n)) return !0;
                     var t = e.parseDN(n).parent();
                     return !!t && t.equals(r.dn);
                   };
                   break;
                 case 'sub':
-                  d = function(e) {
+                  a = function(e) {
                     return r.dn.equals(e) || r.dn.parentOf(e);
                   };
               }
               Object.keys(r.users).forEach(function(e) {
-                d(e) && r.filter.matches(r.users[e]) && s.send(r.users[e]);
+                a(e) && r.filter.matches(r.users[e]) && s.send(r.users[e]);
               });
             }
           }
@@ -133,17 +141,17 @@
             const o = n.dn.rdns[0].attrs.cn;
             if (!n.dn.rdns[0].attrs.cn)
               return s(new e.ConstraintViolationError('cn required'));
-            const d = await c({
+            const a = await c({
               registerInClient: t(n.currentClientId),
               isDeleted: !1,
               username: o.value,
             });
-            if (d && d.length > 0)
+            if (a && a.length > 0)
               return s(new e.EntryAlreadyExistsError(n.dn.toString()));
             try {
               const t = await new i({
                 clientId: n.currentClientId,
-                secret: '03bb8b2fca823137c7dec63fd0029fc2',
+                secret: d.secret,
               });
               await t.register({
                 username: o.value,
@@ -160,23 +168,23 @@
             const o = r.dn.rdns[0].attrs.cn;
             if (!r.dn.rdns[0].attrs.cn)
               return i(new e.NoSuchObjectError(r.dn.toString()));
-            const d = await c({
+            const a = await c({
               registerInClient: t(r.currentClientId),
               isDeleted: !1,
               username: o.value,
             });
-            if (!d || 0 === d.length)
+            if (!a || 0 === a.length)
               return i(new e.NoSuchObjectError(r.dn.toString()));
             try {
-              await ((a = {
+              await ((d = {
                 registerInClient: t(r.currentClientId),
                 username: o.value,
               }),
               new Promise((e, t) => {
                 const r = n.collection('users');
-                (a.isDeleted = !1),
-                  r.updateOne(a, { $set: { isDeleted: !0 } }),
-                  c(a)
+                (d.isDeleted = !1),
+                  r.updateOne(d, { $set: { isDeleted: !0 } }),
+                  c(d)
                     .then(n => {
                       e(n);
                     })
@@ -187,7 +195,7 @@
             } catch (n) {
               return i(new e.UnavailableError(n.toString()));
             }
-            var a;
+            var d;
             return s.end(), i();
           }),
           r.modify(l, g, async function(n, r, s) {
@@ -196,18 +204,18 @@
               return s(new e.NoSuchObjectError(n.dn.toString()));
             if (!n.changes.length)
               return s(new e.ProtocolError('changes required'));
-            const d = await c({
+            const a = await c({
               registerInClient: t(n.currentClientId),
               isDeleted: !1,
               username: o.value,
             });
-            if (!d || 0 === d.length)
+            if (!a || 0 === a.length)
               return s(new e.NoSuchObjectError(n.dn.toString()));
-            const a = d[0];
-            let u, l;
-            for (var f = 0; f < n.changes.length; f++)
+            const u = a[0];
+            let l, f;
+            for (var g = 0; g < n.changes.length; g++)
               switch (
-                ((u = n.changes[f].modification), n.changes[f].operation)
+                ((l = n.changes[g].modification), n.changes[g].operation)
               ) {
                 case 'replace':
                   const t = {
@@ -216,31 +224,31 @@
                       cn: ['username'],
                     },
                     r = ['gid', 'uid', '_id'];
-                  if (r.indexOf(u.type) > -1)
+                  if (r.indexOf(l.type) > -1)
                     return s(
                       new e.UnwillingToPerformError(
-                        `${u.type} is not allowed to modify`
+                        `${l.type} is not allowed to modify`
                       )
                     );
-                  let c = u.type;
-                  t[u.type] && (c = t[u.type]);
+                  let c = l.type;
+                  t[l.type] && (c = t[l.type]);
                   try {
                     if (
-                      ((l =
-                        l ||
+                      ((f =
+                        f ||
                         (await new i({
                           clientId: n.currentClientId,
-                          secret: '03bb8b2fca823137c7dec63fd0029fc2',
+                          secret: d.secret,
                         }))),
                       c instanceof String || 'string' == typeof c)
                     ) {
-                      let e = { _id: a._id };
+                      let e = { _id: u._id };
                       const n = c;
-                      (e[n] = u.vals[0]), await l.update(e);
+                      (e[n] = l.vals[0]), await f.update(e);
                     } else {
-                      let e = { _id: d[0]._id };
-                      for (let n = 0; n < c.length; n++) e[c[n]] = u.vals[0];
-                      await l.update(e);
+                      let e = { _id: a[0]._id };
+                      for (let n = 0; n < c.length; n++) e[c[n]] = l.vals[0];
+                      await f.update(e);
                     }
                   } catch (n) {
                     return s(new e.UnavailableError(n.toString()));

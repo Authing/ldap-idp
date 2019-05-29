@@ -135,9 +135,21 @@
           ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" -LLL -b "o=59f86b4832eb28071bdd9214,ou=users,dc=authing,dc=cn" cn=18000179176
         */
 
-        server.bind(bindDN, function(_req, res, next) {
-          // if (req.dn.toString() !== 'cn=root')
-          //   return next(new ldap.InvalidCredentialsError());
+        server.bind(bindDN, async function(_req, res, next) {
+          const o = _req.dn.rdns[1].attrs;
+          let currentClientId;
+
+          if (o['o']) {
+            currentClientId = o.o.value;
+          }
+
+          if (
+            !(
+              currentClientId.toString() === client._id.toString() &&
+              _req.credentials.toString() === client.secret.toString()
+            )
+          )
+            return next(new ldap.InvalidCredentialsError());
           res.end();
           return next();
         });
@@ -267,7 +279,7 @@
           try {
             const authing = await new Authing({
               clientId: req.currentClientId,
-              secret: '03bb8b2fca823137c7dec63fd0029fc2',
+              secret: client.secret,
             });
             await authing.register({
               username: cn.value,
@@ -360,7 +372,7 @@
                     authing ||
                     (await new Authing({
                       clientId: req.currentClientId,
-                      secret: '03bb8b2fca823137c7dec63fd0029fc2',
+                      secret: client.secret,
                     }));
 
                   if (

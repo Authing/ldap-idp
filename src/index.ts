@@ -137,49 +137,106 @@ const createLDAPServer = (db: any) => {
         // ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -LLL -b "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn" cn=ldap-tester
 
         const filterKey: any = req.filter.attribute;
-        const filterValue: any = req.filter.value;
+        const filterValue: any = req.filter.value || '*';
 
         const filterKeyMapping: any = {
-          cn: ['username', 'unionid'],
-          gid: ['_id'],
-          uid: ['_id'],
+          cn: 'username',
+          gid: '_id',
+          uid: '_id',
         };
 
         let queryOptions: any = {
           registerInClient: ObjectId(req.currentClientId),
         };
 
+        let users: any;
+        req.users = {};
+
         if (filterKeyMapping[filterKey]) {
-          const filterMapping: any = filterKeyMapping[filterKey];
-          for (let i = 0; i < filterMapping.length; i++) {
-            const key: string = filterMapping[i];
-            queryOptions[key] =
-              key === '_id' ? ObjectId(filterValue) : filterValue;
+          const key: any = filterKeyMapping[filterKey];
+          queryOptions[key] =
+            key === '_id' ? ObjectId(filterValue) : filterValue;
+          users = await findUsers(queryOptions);
 
-            const users: object[] = await findUsers(queryOptions);
+          const currentUser: any = users[0];
+          const cn: any = currentUser.username;
+          const dn: string = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
+            req.currentClientId
+          }, dc=authing, dc=cn`;
+          currentUser['cn'] = cn;
+          currentUser['gid'] = currentUser._id;
+          currentUser['uid'] = currentUser._id;
+          currentUser['objectclass'] = 'users';
 
-            if (users && users.length > 0) {
-              const currentUser: any = users[0];
-              const cn: any = currentUser.username || currentUser.unionid;
-              const dn: string = `cn=${cn},uid=${
-                currentUser._id
-              }, ou=users, o=${req.currentClientId}, dc=authing, dc=cn`;
-              currentUser['cn'] = cn;
-              currentUser['gid'] = currentUser._id;
-              currentUser['uid'] = currentUser._id;
+          delete currentUser['__v'];
+          delete currentUser['isDeleted'];
+          delete currentUser['salt'];
 
-              delete currentUser['__v'];
-              delete currentUser['isDeleted'];
-              delete currentUser['salt'];
+          res.send({
+            dn,
+            attributes: currentUser,
+          });
+        } else {
+          users = await findUsers(queryOptions);
+          for (var i = 0; i < users.length; i++) {
+            const currentUser: any = users[i];
+            const cn: any = currentUser.username;
+            const dn: string = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
+              req.currentClientId
+            }, dc=authing, dc=cn`;
+            currentUser['cn'] = cn;
+            currentUser['gid'] = currentUser._id;
+            currentUser['uid'] = currentUser._id;
+            currentUser['objectclass'] = 'users';
+            delete currentUser['__v'];
+            delete currentUser['isDeleted'];
+            delete currentUser['salt'];
 
-              res.send({
-                dn,
-                attributes: currentUser,
-              });
-              break;
+            req.users[currentUser._id] = {
+              dn,
+              attributes: currentUser,
+            };
+
+            let scopeCheck: any;
+
+            switch (req.scope) {
+              case 'base':
+                if (req.filter.matches(db[dn])) {
+                  res.send({
+                    dn: dn,
+                    attributes: db[dn],
+                  });
+                }
+
+                res.end();
+                return next();
+
+              case 'one':
+                scopeCheck = function(k: any) {
+                  if (req.dn.equals(k)) return true;
+
+                  var parent = ldap.parseDN(k).parent();
+                  return parent ? parent.equals(req.dn) : false;
+                };
+                break;
+
+              case 'sub':
+                scopeCheck = function(k: any) {
+                  return req.dn.equals(k) || req.dn.parentOf(k);
+                };
+
+                break;
             }
 
-            delete queryOptions[key];
+            Object.keys(req.users).forEach(function(key) {
+              if (!scopeCheck(key)) return;
+
+              if (req.filter.matches(req.users[key])) {
+                res.send(req.users[key]);
+              }
+            });
+
+            // console.log(req.users);
           }
         }
 

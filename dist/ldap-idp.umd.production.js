@@ -52,7 +52,7 @@
       for (let d = 0; d < i.length; d++) {
         const a = i[d];
         let l = `ou=users,o=${a._id},dc=authing,dc=cn`;
-        const u = `o=${a._id}, ou=users, dc=authing, dc=cn`;
+        const u = `ou=users, o=${a._id}, dc=authing, dc=cn`;
         r.bind(l, async function(n, t, r) {
           const i = n.dn.rdns[1].attrs;
           let s;

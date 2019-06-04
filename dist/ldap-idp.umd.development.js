@@ -129,10 +129,10 @@
       for (let i = 0; i < clients.length; i++) {
         const client = clients[i];
         let bindDN = `ou=users,o=${client._id},dc=authing,dc=cn`;
-        const SUFFIX = `o=${client._id}, ou=users, dc=authing, dc=cn`;
+        const SUFFIX = `ou=users, o=${client._id}, dc=authing, dc=cn`;
         /*
           DN = uid=LDAP_BINDING_USER（邮箱或者手机号）,ou=Users,o=AUTHING_CLINET_ID,dc=authing,dc=cn
-          ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" -LLL -b "o=59f86b4832eb28071bdd9214,ou=users,dc=authing,dc=cn" cn=18000179176
+          ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" -LLL -b "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" cn=18000179176
         */
 
         server.bind(bindDN, async function(_req, res, next) {
@@ -162,7 +162,7 @@
 
         const pre = [authorize, loadCurrentClientId];
         server.search(SUFFIX, pre, async function(req, res, next) {
-          // ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" -LLL -b "o=5c344f102e450b000170190a,ou=users,dc=authing,dc=cn" cn=ldap-tester
+          // ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" -LLL -b "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" cn=ldap-tester
           const filterKey = req.filter.attribute;
           const filterValue = req.filter.value || '*'; // const queryDN = req.dn.toString();
 
@@ -263,7 +263,7 @@
           return next();
         });
         server.del(SUFFIX, pre, async function(req, res, next) {
-          // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" "cn=ldapjs, o=5c344f102e450b000170190a, ou=users, dc=authing,dc=cn"
+          // ldapdelete -H ldap://localhost:1389 -x -D "ou=users,o=5c344f102e450b000170190a,dc=authing,dc=cn" -w "03bb8b2fca823137c7dec63fd0029fc2" "cn=ldapjs, ou=users, o=59f86b4832eb28071bdd9214, dc=authing,dc=cn"
           const cn = req.dn.rdns[0].attrs.cn;
           if (!req.dn.rdns[0].attrs.cn)
             return next(new ldap.NoSuchObjectError(req.dn.toString()));

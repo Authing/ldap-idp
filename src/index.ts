@@ -107,7 +107,7 @@ const createLDAPServer = (db: any) => {
     };
 
     for (let i = 0; i < clients.length; i++) {
-      const client = clients[i];
+      const client = clients[i] || {};
 
       let bindDN: string = `ou=users,o=${client._id},dc=authing,dc=cn`;
       const SUFFIX: string = `ou=users, o=${client._id}, dc=authing, dc=cn`;
@@ -119,18 +119,79 @@ const createLDAPServer = (db: any) => {
 
       server.bind(bindDN, async function(_req: any, res: any, next: any) {
         const o: any = _req.dn.rdns[1].attrs;
-        let currentClientId: any;
+        let currentClientId: any = '';
         if (o['o']) {
           currentClientId = o.o.value;
+        } else {
+          const rdns: any = _req.dn.rdns;
+          for (let i = 0; i < rdns.length; i++) {
+            const rdn = rdns[i];
+            for (let key in rdn.attrs) {
+              if (key === 'o') {
+                currentClientId = rdn.attrs.o.value;
+              }
+            }
+          }
         }
 
-        if (
-          !(
-            currentClientId.toString() === client._id.toString() &&
-            _req.credentials.toString() === client.secret.toString()
-          )
-        )
-          return next(new ldap.InvalidCredentialsError());
+        console.log(_req.dn.rdns.toString());
+
+        const dnString = _req.dn.rdns.toString();
+
+        /*
+          需要分两种类型进行验证
+          1. 只用 client 进行查询，使用 secret 进行验证
+          2. 对单个用户进行查询，使用用户真实密码进行验证
+        */
+
+        if (dnString.indexOf('uid=') > -1) {
+          try {
+            const rdns: any = _req.dn.rdns;
+            let uid: string = '';
+            for (let i = 0; i < rdns.length; i++) {
+              const rdn = rdns[i];
+              for (let key in rdn.attrs) {
+                if (key === 'uid') {
+                  uid = rdn.attrs.uid.value;
+                }
+              }
+            }
+
+            const users: any = await findUsers({
+              registerInClient: ObjectId(currentClientId),
+              _id: ObjectId(uid),
+            });
+
+            const user: any = users[0];
+
+            if (user.password) {
+              if (currentClientId.toString() === client._id.toString()) {
+                const authing = await new Authing({
+                  clientId: currentClientId,
+                  secret: client.secret,
+                });
+
+                const loginOpt = {
+                  username: user.username,
+                  password: _req.credentials,
+                };
+
+                await authing.login(loginOpt);
+              }
+            }
+          } catch (error) {
+            return next(new ldap.InvalidCredentialsError(error));
+          }
+        } else {
+          if (
+            !(
+              currentClientId.toString() === client._id.toString() &&
+              _req.credentials.toString() === client.secret.toString()
+            )
+          ) {
+            return next(new ldap.InvalidCredentialsError());
+          }
+        }
 
         res.end();
         return next();
@@ -248,7 +309,7 @@ const createLDAPServer = (db: any) => {
             username: cn.value,
             nickname: cn.value,
             unionid: `ldap|${cn.value}`,
-            registerMethod: 'sso:ldap-add',
+            registerMethod: `ldap:sso::from-ldapadd`,
           });
         } catch (error) {
           return next(new ldap.UnavailableError(error.toString()));

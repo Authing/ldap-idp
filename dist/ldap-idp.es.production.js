@@ -78,7 +78,7 @@ const c = t => {
               await e.login(n);
             }
           } catch (t) {
-            return s(new e.InvalidCredentialsError(t));
+            return s(new e.InvalidCredentialsError(JSON.stringify(t)));
           }
         else if (
           d.toString() !== a._id.toString() ||

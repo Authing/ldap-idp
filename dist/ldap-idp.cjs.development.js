@@ -196,7 +196,9 @@ const createLDAPServer = db => {
               }
             }
           } catch (error) {
-            return next(new ldap.InvalidCredentialsError(error));
+            return next(
+              new ldap.InvalidCredentialsError(JSON.stringify(error))
+            );
           }
         } else {
           if (

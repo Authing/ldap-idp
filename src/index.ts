@@ -175,12 +175,13 @@ const createLDAPServer = (db: any) => {
                   username: user.username,
                   password: _req.credentials,
                 };
-
                 await authing.login(loginOpt);
               }
             }
           } catch (error) {
-            return next(new ldap.InvalidCredentialsError(error));
+            return next(
+              new ldap.InvalidCredentialsError(JSON.stringify(error))
+            );
           }
         } else {
           if (

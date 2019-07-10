@@ -82,7 +82,7 @@
                 await e.login(t);
               }
             } catch (n) {
-              return i(new e.InvalidCredentialsError(n));
+              return i(new e.InvalidCredentialsError(JSON.stringify(n)));
             }
           else if (
             d.toString() !== a._id.toString() ||

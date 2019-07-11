@@ -381,9 +381,8 @@ const createLDAPServer = (db: any) => {
                 mail: 'email',
                 cn: ['username'],
               };
-
-              const notAllowedTypes = ['gid', 'uid', '_id'];
-
+              // 不允许修改密码，因为无法提供 oldPassword，日后可以改善下
+              const notAllowedTypes = ['gid', 'uid', '_id', 'userpassword'];
               if (notAllowedTypes.indexOf(mod.type) > -1) {
                 return next(
                   new ldap.UnwillingToPerformError(
@@ -426,7 +425,7 @@ const createLDAPServer = (db: any) => {
                   await authing.update(query);
                 }
               } catch (error) {
-                return next(new ldap.UnavailableError(error.toString()));
+                return next(new ldap.UnavailableError(JSON.stringify(error)));
               }
               break;
             case 'add':

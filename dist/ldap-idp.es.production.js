@@ -221,7 +221,7 @@ const c = t => {
                     mail: 'email',
                     cn: ['username'],
                   },
-                  r = ['gid', 'uid', '_id'];
+                  r = ['gid', 'uid', '_id', 'userpassword'];
                 if (r.indexOf(u.type) > -1)
                   return s(
                     new e.UnwillingToPerformError(
@@ -249,7 +249,7 @@ const c = t => {
                     await g.update(e);
                   }
                 } catch (t) {
-                  return s(new e.UnavailableError(t.toString()));
+                  return s(new e.UnavailableError(JSON.stringify(t)));
                 }
                 break;
               case 'add':

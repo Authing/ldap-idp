@@ -227,7 +227,7 @@
                       mail: 'email',
                       cn: ['username'],
                     },
-                    r = ['gid', 'uid', '_id'];
+                    r = ['gid', 'uid', '_id', 'userpassword'];
                   if (r.indexOf(u.type) > -1)
                     return i(
                       new e.UnwillingToPerformError(
@@ -255,7 +255,7 @@
                       await f.update(e);
                     }
                   } catch (n) {
-                    return i(new e.UnavailableError(n.toString()));
+                    return i(new e.UnavailableError(JSON.stringify(n)));
                   }
                   break;
                 case 'add':

@@ -16,6 +16,7 @@
       r.port,
       '/',
       r.dbname,
+      '?readPreference=secondaryPreferred',
     ].join('');
   n.connect(o, function(e, n) {
     i.equal(null, e), console.log('Connected successfully to server');
@@ -32,36 +33,19 @@
               e && r(e), t(n);
             });
         });
-      };
-    !(function(e) {
-      const t = n.collection('userclients');
-      t.find({ isDeleted: !1 }).toArray(function(n, t) {
-        i.equal(n, null), e(t);
-      });
-    })(i => {
-      const c = (e, n, t) => {
-        e.currentClientId = '';
-        const r = e.dn.rdns;
-        for (let n = 0; n < r.length; n++) {
-          const t = r[n];
-          for (let n in t.attrs)
-            'o' === n && (e.currentClientId = t.attrs.o.value);
-        }
-        return t();
-      };
-      for (let d = 0; d < i.length; d++) {
-        const a = i[d] || {};
-        let l = `ou=users,o=${a._id},dc=authing,dc=cn`;
-        const u = `ou=users, o=${a._id}, dc=authing, dc=cn`;
-        r.bind(l, async function(n, r, i) {
-          const c = n.dn.rdns[1].attrs;
-          let d = '';
-          if (c.o) d = c.o.value;
+      },
+      c = function(i) {
+        let c = `ou=users,o=${i._id},dc=authing,dc=cn`;
+        const d = `ou=users, o=${i._id}, dc=authing, dc=cn`;
+        r.bind(c, async function(n, r, c) {
+          const d = n.dn.rdns[1].attrs;
+          let a = '';
+          if (d.o) a = d.o.value;
           else {
             const e = n.dn.rdns;
             for (let n = 0; n < e.length; n++) {
               const t = e[n];
-              for (let e in t.attrs) 'o' === e && (d = t.attrs.o.value);
+              for (let e in t.attrs) 'o' === e && (a = t.attrs.o.value);
             }
           }
           console.log(n.dn.rdns.toString());
@@ -69,34 +53,45 @@
           if (l.indexOf('uid=') > -1)
             try {
               const r = n.dn.rdns;
-              let c = '';
+              let d = '';
               for (let e = 0; e < r.length; e++) {
                 const n = r[e];
-                for (let e in n.attrs) 'uid' === e && (c = n.attrs.uid.value);
+                for (let e in n.attrs) 'uid' === e && (d = n.attrs.uid.value);
               }
-              const l = await o({ registerInClient: t(d), _id: t(c) }),
+              const l = await o({ registerInClient: t(a), _id: t(d) }),
                 u = l[0];
-              if (u.password && d.toString() === a._id.toString()) {
-                const e = await new s({ clientId: d, secret: a.secret }),
+              if (u.password && a.toString() === i._id.toString()) {
+                const e = await new s({ clientId: a, secret: i.secret }),
                   t = { username: u.username, password: n.credentials };
                 await e.login(t);
               }
             } catch (n) {
-              return i(new e.InvalidCredentialsError(JSON.stringify(n)));
+              return c(new e.InvalidCredentialsError(JSON.stringify(n)));
             }
           else if (
-            d.toString() !== a._id.toString() ||
-            n.credentials.toString() !== a.secret.toString()
+            a.toString() !== i._id.toString() ||
+            n.credentials.toString() !== i.secret.toString()
           )
-            return i(new e.InvalidCredentialsError());
-          return r.end(), i();
+            return c(new e.InvalidCredentialsError());
+          return r.end(), c();
         });
-        const f = (n, t, r) =>
-            n.connection.ldap.bindDN.equals(l)
+        const a = [
+          (n, t, r) =>
+            n.connection.ldap.bindDN.equals(c)
               ? r()
               : r(new e.InsufficientAccessRightsError()),
-          g = [f, c];
-        r.search(u, g, async function(e, n, r) {
+          (e, n, t) => {
+            e.currentClientId = '';
+            const r = e.dn.rdns;
+            for (let n = 0; n < r.length; n++) {
+              const t = r[n];
+              for (let n in t.attrs)
+                'o' === n && (e.currentClientId = t.attrs.o.value);
+            }
+            return t();
+          },
+        ];
+        r.search(d, a, async function(e, n, r) {
           const i = e.filter.attribute,
             s = e.filter.value || '*',
             c = { cn: 'username', gid: '_id', uid: '_id' };
@@ -141,34 +136,34 @@
           }
           return n.end(), r();
         }),
-          r.add(u, g, async function(n, r, i) {
-            const c = n.dn.rdns[0].attrs.cn;
+          r.add(d, a, async function(n, r, c) {
+            const d = n.dn.rdns[0].attrs.cn;
             if (!n.dn.rdns[0].attrs.cn)
-              return i(new e.ConstraintViolationError('cn required'));
-            const d = await o({
+              return c(new e.ConstraintViolationError('cn required'));
+            const a = await o({
               registerInClient: t(n.currentClientId),
               isDeleted: !1,
-              username: c.value,
+              username: d.value,
             });
-            if (d && d.length > 0)
-              return i(new e.EntryAlreadyExistsError(n.dn.toString()));
+            if (a && a.length > 0)
+              return c(new e.EntryAlreadyExistsError(n.dn.toString()));
             try {
               const t = await new s({
                 clientId: n.currentClientId,
-                secret: a.secret,
+                secret: i.secret,
               });
               await t.register({
-                username: c.value,
-                nickname: c.value,
-                unionid: `ldap|${c.value}`,
+                username: d.value,
+                nickname: d.value,
+                unionid: `ldap|${d.value}`,
                 registerMethod: 'ldap:sso::from-ldapadd',
               });
             } catch (n) {
-              return i(new e.UnavailableError(n.toString()));
+              return c(new e.UnavailableError(n.toString()));
             }
-            return r.end(), i();
+            return r.end(), c();
           }),
-          r.del(u, g, async function(r, i, s) {
+          r.del(d, a, async function(r, i, s) {
             const c = r.dn.rdns[0].attrs.cn;
             if (!r.dn.rdns[0].attrs.cn)
               return s(new e.NoSuchObjectError(r.dn.toString()));
@@ -202,20 +197,20 @@
             var a;
             return i.end(), s();
           }),
-          r.modify(u, g, async function(n, r, i) {
-            const c = n.dn.rdns[0].attrs.cn;
+          r.modify(d, a, async function(n, r, c) {
+            const d = n.dn.rdns[0].attrs.cn;
             if (!n.dn.rdns[0].attrs.cn)
-              return i(new e.NoSuchObjectError(n.dn.toString()));
+              return c(new e.NoSuchObjectError(n.dn.toString()));
             if (!n.changes.length)
-              return i(new e.ProtocolError('changes required'));
-            const d = await o({
+              return c(new e.ProtocolError('changes required'));
+            const a = await o({
               registerInClient: t(n.currentClientId),
               isDeleted: !1,
-              username: c.value,
+              username: d.value,
             });
-            if (!d || 0 === d.length)
-              return i(new e.NoSuchObjectError(n.dn.toString()));
-            const l = d[0];
+            if (!a || 0 === a.length)
+              return c(new e.NoSuchObjectError(n.dn.toString()));
+            const l = a[0];
             let u, f;
             for (var g = 0; g < n.changes.length; g++)
               switch (
@@ -229,7 +224,7 @@
                     },
                     r = ['gid', 'uid', '_id', 'userpassword'];
                   if (r.indexOf(u.type) > -1)
-                    return i(
+                    return c(
                       new e.UnwillingToPerformError(
                         `${u.type} is not allowed to modify`
                       )
@@ -242,7 +237,7 @@
                         f ||
                         (await new s({
                           clientId: n.currentClientId,
-                          secret: a.secret,
+                          secret: i.secret,
                         }))),
                       o instanceof String || 'string' == typeof o)
                     ) {
@@ -250,26 +245,45 @@
                       const n = o;
                       (e[n] = u.vals[0]), await f.update(e);
                     } else {
-                      let e = { _id: d[0]._id };
+                      let e = { _id: a[0]._id };
                       for (let n = 0; n < o.length; n++) e[o[n]] = u.vals[0];
                       await f.update(e);
                     }
                   } catch (n) {
-                    return i(new e.UnavailableError(JSON.stringify(n)));
+                    return c(new e.UnavailableError(JSON.stringify(n)));
                   }
                   break;
                 case 'add':
                 case 'delete':
-                  return i(
+                  return c(
                     new e.UnwillingToPerformError('only replace allowed')
                   );
               }
-            return r.end(), i();
+            return r.end(), c();
           });
-      }
-      r.listen(1389, function() {
-        console.log('LDAP server up at: %s', r.url);
+      };
+    !(function(e) {
+      const t = n.collection('userclients');
+      t.find({ isDeleted: !1 }).toArray(function(n, t) {
+        i.equal(n, null), e(t);
       });
+    })(e => {
+      for (let n = 0; n < e.length; n++) {
+        const t = e[n] || {};
+        c(t);
+      }
+      const t = n.collection('userclients'),
+        i = t.watch();
+      i.on('change', e => {
+        const n = e.operationType;
+        if ('insert' === n) {
+          const n = e.fullDocument;
+          console.log('add client to ldap', n), c(n);
+        }
+      }),
+        r.listen(1389, function() {
+          console.log('LDAP server up at: %s', r.url);
+        });
     });
   };
 });

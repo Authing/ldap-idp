@@ -8,16 +8,9 @@
     r = require('./ldapdb.json'),
     i = require('assert'),
     s = require('authing-js-sdk'),
-    o = [
-      'mongodb://',
-      r.user + ':' + r.password + '@',
-      r.ip,
-      ':',
-      r.port,
-      '/',
-      r.dbname,
-      '?readPreference=secondaryPreferred',
-    ].join('');
+    o = `mongodb://${r.user}:${r.password}@${r.replicaSet.addr}/${
+      r.dbname
+    }?readPreference=secondaryPreferred&replicaSet=${r.replicaSet.name}`;
   n.connect(o, function(e, n) {
     i.equal(null, e), console.log('Connected successfully to server');
     const t = n.db(r.dbname);

@@ -31,18 +31,11 @@
     /*#__PURE__*/
     require('authing-js-sdk'); // Connection URL
 
-  const url =
-    /*#__PURE__*/
-    [
-      'mongodb://',
-      ldapdb.user + ':' + ldapdb.password + '@',
-      ldapdb.ip,
-      ':',
-      ldapdb.port,
-      '/',
-      ldapdb.dbname,
-      '?readPreference=secondaryPreferred',
-    ].join(''); // Use connect method to connect to the server
+  const url = `mongodb://${ldapdb.user}:${ldapdb.password}@${
+    ldapdb.replicaSet.addr
+  }/${ldapdb.dbname}?readPreference=secondaryPreferred&replicaSet=${
+    ldapdb.replicaSet.name
+  }`; // Use connect method to connect to the server
 
   MongoClient.connect(url, function(_err, client) {
     assert.equal(null, _err);

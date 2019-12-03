@@ -10,16 +10,11 @@ const assert = require('assert');
 const Authing = require('authing-js-sdk');
 
 // Connection URL
-const url = [
-  'mongodb://',
-  ldapdb.user + ':' + ldapdb.password + '@',
-  ldapdb.ip,
-  ':',
-  ldapdb.port,
-  '/',
-  ldapdb.dbname,
-  '?readPreference=secondaryPreferred',
-].join('');
+const url = `mongodb://${ldapdb.user}:${ldapdb.password}@${
+  ldapdb.replicaSet.addr
+}/${ldapdb.dbname}?readPreference=secondaryPreferred&replicaSet=${
+  ldapdb.replicaSet.name
+}`;
 
 // Use connect method to connect to the server
 MongoClient.connect(url, function(_err: any, client: any) {

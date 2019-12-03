@@ -1,103 +1,96 @@
 'use strict';
 const e = require('ldapjs'),
-  n = require('mongodb').MongoClient,
-  t = require('mongodb').ObjectId,
+  t = require('mongodb').MongoClient,
+  n = require('mongodb').ObjectId,
   r = require('./ldapdb.json'),
   s = require('assert'),
   i = require('authing-js-sdk'),
-  o = [
-    'mongodb://',
-    r.user + ':' + r.password + '@',
-    r.ip,
-    ':',
-    r.port,
-    '/',
-    r.dbname,
-    '?readPreference=secondaryPreferred',
-  ].join('');
-n.connect(o, function(e, n) {
+  o = `mongodb://${r.user}:${r.password}@${r.replicaSet.addr}/${
+    r.dbname
+  }?readPreference=secondaryPreferred&replicaSet=${r.replicaSet.name}`;
+t.connect(o, function(e, t) {
   s.equal(null, e), console.log('Connected successfully to server');
-  const t = n.db(r.dbname);
-  c(t);
+  const n = t.db(r.dbname);
+  c(n);
 });
-const c = n => {
+const c = t => {
   const r = e.createServer(),
     o = function(e) {
-      return new Promise((t, r) => {
-        const s = n.collection('users');
+      return new Promise((n, r) => {
+        const s = t.collection('users');
         (e.isDeleted = !1),
-          s.find(e).toArray(function(e, n) {
-            e && r(e), t(n);
+          s.find(e).toArray(function(e, t) {
+            e && r(e), n(t);
           });
       });
     },
     c = function(s) {
       let c = `ou=users,o=${s._id},dc=authing,dc=cn`;
-      const d = `ou=users, o=${s._id}, dc=authing, dc=cn`;
-      r.bind(c, async function(n, r, c) {
-        const d = n.dn.rdns[1].attrs;
-        let a = '';
-        if (d.o) a = d.o.value;
+      const a = `ou=users, o=${s._id}, dc=authing, dc=cn`;
+      r.bind(c, async function(t, r, c) {
+        const a = t.dn.rdns[1].attrs;
+        let d = '';
+        if (a.o) d = a.o.value;
         else {
-          const e = n.dn.rdns;
-          for (let n = 0; n < e.length; n++) {
-            const t = e[n];
-            for (let e in t.attrs) 'o' === e && (a = t.attrs.o.value);
+          const e = t.dn.rdns;
+          for (let t = 0; t < e.length; t++) {
+            const n = e[t];
+            for (let e in n.attrs) 'o' === e && (d = n.attrs.o.value);
           }
         }
-        console.log(n.dn.rdns.toString());
-        const l = n.dn.rdns.toString();
+        console.log(t.dn.rdns.toString());
+        const l = t.dn.rdns.toString();
         if (l.indexOf('uid=') > -1)
           try {
-            const r = n.dn.rdns;
-            let d = '';
+            const r = t.dn.rdns;
+            let a = '';
             for (let e = 0; e < r.length; e++) {
-              const n = r[e];
-              for (let e in n.attrs) 'uid' === e && (d = n.attrs.uid.value);
+              const t = r[e];
+              for (let e in t.attrs) 'uid' === e && (a = t.attrs.uid.value);
             }
-            const l = await o({ registerInClient: t(a), _id: t(d) }),
+            const l = await o({ registerInClient: n(d), _id: n(a) }),
               u = l[0];
-            if (u.password && a.toString() === s._id.toString()) {
-              const e = await new i({ clientId: a, secret: s.secret }),
-                t = { username: u.username, password: n.credentials };
-              await e.login(t);
+            if (u.password && d.toString() === s._id.toString()) {
+              const e = await new i({ clientId: d, secret: s.secret }),
+                n = { username: u.username, password: t.credentials };
+              await e.login(n);
             }
-          } catch (n) {
-            return c(new e.InvalidCredentialsError(JSON.stringify(n)));
+          } catch (t) {
+            return c(new e.InvalidCredentialsError(JSON.stringify(t)));
           }
         else if (
-          a.toString() !== s._id.toString() ||
-          n.credentials.toString() !== s.secret.toString()
+          d.toString() !== s._id.toString() ||
+          t.credentials.toString() !== s.secret.toString()
         )
           return c(new e.InvalidCredentialsError());
         return r.end(), c();
       });
-      const a = [
-        (n, t, r) =>
-          n.connection.ldap.bindDN.equals(c)
+      const d = [
+        (t, n, r) =>
+          t.connection.ldap.bindDN.equals(c)
             ? r()
             : r(new e.InsufficientAccessRightsError()),
-        (e, n, t) => {
+        (e, t, n) => {
           e.currentClientId = '';
           const r = e.dn.rdns;
-          for (let n = 0; n < r.length; n++) {
-            const t = r[n];
-            for (let n in t.attrs)
-              'o' === n && (e.currentClientId = t.attrs.o.value);
+          for (let t = 0; t < r.length; t++) {
+            const n = r[t];
+            for (let t in n.attrs)
+              'o' === t && (e.currentClientId = n.attrs.o.value);
           }
-          return t();
+          return n();
         },
       ];
-      r.search(d, a, async function(e, n, r) {
+      r.search(a, d, async function(e, t, r) {
         const s = e.filter.attribute,
           i = e.filter.value || '*',
           c = { cn: 'username', gid: '_id', uid: '_id' };
-        let d,
-          a = { registerInClient: t(e.currentClientId) };
+        let a,
+          d = { registerInClient: n(e.currentClientId) };
         if (((e.users = {}), c[s])) {
           const r = c[s];
-          (a[r] = '_id' === r ? t(i) : i), (d = await o(a));
-          const l = d[0],
+          (d[r] = '_id' === r ? n(i) : i), (a = await o(d));
+          const l = a[0],
             u = l.username,
             g = `cn=${u},uid=${l._id}, ou=users, o=${
               e.currentClientId
@@ -109,110 +102,110 @@ const c = n => {
             delete l.__v,
             delete l.isDeleted,
             delete l.salt,
-            n.send({ dn: g, attributes: l });
+            t.send({ dn: g, attributes: l });
         } else {
-          d = await o(a);
-          for (var l = 0; l < d.length; l++) {
-            const t = d[l],
-              r = t.username,
-              s = `cn=${r},uid=${t._id}, ou=users, o=${
+          a = await o(d);
+          for (var l = 0; l < a.length; l++) {
+            const n = a[l],
+              r = n.username,
+              s = `cn=${r},uid=${n._id}, ou=users, o=${
                 e.currentClientId
               }, dc=authing, dc=cn`;
-            (t.cn = r),
-              (t.gid = t._id),
-              (t.uid = t._id),
-              (t.objectclass = 'users'),
-              delete t.__v,
-              delete t.isDeleted,
-              delete t.salt,
-              (e.users[s] = { dn: s, attributes: t }),
-              Object.keys(e.users).forEach(function(t) {
-                e.filter.matches(e.users[t].attributes) && n.send(e.users[t]);
+            (n.cn = r),
+              (n.gid = n._id),
+              (n.uid = n._id),
+              (n.objectclass = 'users'),
+              delete n.__v,
+              delete n.isDeleted,
+              delete n.salt,
+              (e.users[s] = { dn: s, attributes: n }),
+              Object.keys(e.users).forEach(function(n) {
+                e.filter.matches(e.users[n].attributes) && t.send(e.users[n]);
               });
           }
         }
-        return n.end(), r();
+        return t.end(), r();
       }),
-        r.add(d, a, async function(n, r, c) {
-          const d = n.dn.rdns[0].attrs.cn;
-          if (!n.dn.rdns[0].attrs.cn)
+        r.add(a, d, async function(t, r, c) {
+          const a = t.dn.rdns[0].attrs.cn;
+          if (!t.dn.rdns[0].attrs.cn)
             return c(new e.ConstraintViolationError('cn required'));
-          const a = await o({
-            registerInClient: t(n.currentClientId),
+          const d = await o({
+            registerInClient: n(t.currentClientId),
             isDeleted: !1,
-            username: d.value,
+            username: a.value,
           });
-          if (a && a.length > 0)
-            return c(new e.EntryAlreadyExistsError(n.dn.toString()));
+          if (d && d.length > 0)
+            return c(new e.EntryAlreadyExistsError(t.dn.toString()));
           try {
-            const t = await new i({
-              clientId: n.currentClientId,
+            const n = await new i({
+              clientId: t.currentClientId,
               secret: s.secret,
             });
-            await t.register({
-              username: d.value,
-              nickname: d.value,
-              unionid: `ldap|${d.value}`,
+            await n.register({
+              username: a.value,
+              nickname: a.value,
+              unionid: `ldap|${a.value}`,
               registerMethod: 'ldap:sso::from-ldapadd',
             });
-          } catch (n) {
-            return c(new e.UnavailableError(n.toString()));
+          } catch (t) {
+            return c(new e.UnavailableError(t.toString()));
           }
           return r.end(), c();
         }),
-        r.del(d, a, async function(r, s, i) {
+        r.del(a, d, async function(r, s, i) {
           const c = r.dn.rdns[0].attrs.cn;
           if (!r.dn.rdns[0].attrs.cn)
             return i(new e.NoSuchObjectError(r.dn.toString()));
-          const d = await o({
-            registerInClient: t(r.currentClientId),
+          const a = await o({
+            registerInClient: n(r.currentClientId),
             isDeleted: !1,
             username: c.value,
           });
-          if (!d || 0 === d.length)
+          if (!a || 0 === a.length)
             return i(new e.NoSuchObjectError(r.dn.toString()));
           try {
-            await ((a = {
-              registerInClient: t(r.currentClientId),
+            await ((d = {
+              registerInClient: n(r.currentClientId),
               username: c.value,
             }),
-            new Promise((e, t) => {
-              const r = n.collection('users');
-              (a.isDeleted = !1),
-                r.updateOne(a, { $set: { isDeleted: !0 } }),
-                o(a)
-                  .then(n => {
-                    e(n);
+            new Promise((e, n) => {
+              const r = t.collection('users');
+              (d.isDeleted = !1),
+                r.updateOne(d, { $set: { isDeleted: !0 } }),
+                o(d)
+                  .then(t => {
+                    e(t);
                   })
                   .catch(e => {
-                    t(e);
+                    n(e);
                   });
             }));
-          } catch (n) {
-            return i(new e.UnavailableError(n.toString()));
+          } catch (t) {
+            return i(new e.UnavailableError(t.toString()));
           }
-          var a;
+          var d;
           return s.end(), i();
         }),
-        r.modify(d, a, async function(n, r, c) {
-          const d = n.dn.rdns[0].attrs.cn;
-          if (!n.dn.rdns[0].attrs.cn)
-            return c(new e.NoSuchObjectError(n.dn.toString()));
-          if (!n.changes.length)
+        r.modify(a, d, async function(t, r, c) {
+          const a = t.dn.rdns[0].attrs.cn;
+          if (!t.dn.rdns[0].attrs.cn)
+            return c(new e.NoSuchObjectError(t.dn.toString()));
+          if (!t.changes.length)
             return c(new e.ProtocolError('changes required'));
-          const a = await o({
-            registerInClient: t(n.currentClientId),
+          const d = await o({
+            registerInClient: n(t.currentClientId),
             isDeleted: !1,
-            username: d.value,
+            username: a.value,
           });
-          if (!a || 0 === a.length)
-            return c(new e.NoSuchObjectError(n.dn.toString()));
-          const l = a[0];
+          if (!d || 0 === d.length)
+            return c(new e.NoSuchObjectError(t.dn.toString()));
+          const l = d[0];
           let u, g;
-          for (var f = 0; f < n.changes.length; f++)
-            switch (((u = n.changes[f].modification), n.changes[f].operation)) {
+          for (var f = 0; f < t.changes.length; f++)
+            switch (((u = t.changes[f].modification), t.changes[f].operation)) {
               case 'replace':
-                const t = {
+                const n = {
                     userpassword: 'password',
                     mail: 'email',
                     cn: ['username'],
@@ -225,27 +218,27 @@ const c = n => {
                     )
                   );
                 let o = u.type;
-                t[u.type] && (o = t[u.type]);
+                n[u.type] && (o = n[u.type]);
                 try {
                   if (
                     ((g =
                       g ||
                       (await new i({
-                        clientId: n.currentClientId,
+                        clientId: t.currentClientId,
                         secret: s.secret,
                       }))),
                     o instanceof String || 'string' == typeof o)
                   ) {
                     let e = { _id: l._id };
-                    const n = o;
-                    (e[n] = u.vals[0]), await g.update(e);
+                    const t = o;
+                    (e[t] = u.vals[0]), await g.update(e);
                   } else {
-                    let e = { _id: a[0]._id };
-                    for (let n = 0; n < o.length; n++) e[o[n]] = u.vals[0];
+                    let e = { _id: d[0]._id };
+                    for (let t = 0; t < o.length; t++) e[o[t]] = u.vals[0];
                     await g.update(e);
                   }
-                } catch (n) {
-                  return c(new e.UnavailableError(JSON.stringify(n)));
+                } catch (t) {
+                  return c(new e.UnavailableError(JSON.stringify(t)));
                 }
                 break;
               case 'add':
@@ -256,22 +249,22 @@ const c = n => {
         });
     };
   !(function(e) {
-    const t = n.collection('userclients');
-    t.find({ isDeleted: !1 }).toArray(function(n, t) {
-      s.equal(n, null), e(t);
+    const n = t.collection('userclients');
+    n.find({ isDeleted: !1 }).toArray(function(t, n) {
+      s.equal(t, null), e(n);
     });
   })(e => {
-    for (let n = 0; n < e.length; n++) {
-      const t = e[n] || {};
-      c(t);
+    for (let t = 0; t < e.length; t++) {
+      const n = e[t] || {};
+      c(n);
     }
-    const t = n.collection('userclients'),
-      s = t.watch();
+    const n = t.collection('userclients'),
+      s = n.watch();
     s.on('change', e => {
-      const n = e.operationType;
-      if ('insert' === n) {
-        const n = e.fullDocument;
-        console.log('add client to ldap', n), c(n);
+      const t = e.operationType;
+      if ('insert' === t) {
+        const t = e.fullDocument;
+        console.log('add client to ldap', t), c(t);
       }
     }),
       r.listen(1389, function() {

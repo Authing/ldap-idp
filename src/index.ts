@@ -16,6 +16,11 @@ const url = `mongodb://${ldapdb.user}:${ldapdb.password}@${
   ldapdb.replicaSet.name
 }`;
 
+process.on('unhandledRejection', err => {
+  console.log('全局reject');
+  console.log(err);
+});
+
 // Use connect method to connect to the server
 MongoClient.connect(url, function(_err: any, client: any) {
   assert.equal(null, _err);

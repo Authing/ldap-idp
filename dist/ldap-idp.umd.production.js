@@ -11,11 +11,14 @@
     o = `mongodb://${r.user}:${r.password}@${r.replicaSet.addr}/${
       r.dbname
     }?readPreference=secondaryPreferred&replicaSet=${r.replicaSet.name}`;
-  n.connect(o, function(e, n) {
-    s.equal(null, e), console.log('Connected successfully to server');
-    const t = n.db(r.dbname);
-    c(t);
-  });
+  process.on('unhandledRejection', e => {
+    console.log('全局reject'), console.log(e);
+  }),
+    n.connect(o, function(e, n) {
+      s.equal(null, e), console.log('Connected successfully to server');
+      const t = n.db(r.dbname);
+      c(t);
+    });
   const c = n => {
     const r = e.createServer(),
       o = function(e) {

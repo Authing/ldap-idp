@@ -35,7 +35,11 @@
     ldapdb.replicaSet.addr
   }/${ldapdb.dbname}?readPreference=secondaryPreferred&replicaSet=${
     ldapdb.replicaSet.name
-  }`; // Use connect method to connect to the server
+  }`;
+  process.on('unhandledRejection', err => {
+    console.log('全局reject');
+    console.log(err);
+  }); // Use connect method to connect to the server
 
   MongoClient.connect(url, function(_err, client) {
     assert.equal(null, _err);

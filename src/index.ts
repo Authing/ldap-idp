@@ -21,6 +21,11 @@ process.on('unhandledRejection', err => {
   console.log(err);
 });
 
+// uncaughtException 避免程序崩溃
+process.on('uncaughtException', function(err) {
+  console.log(err);
+});
+
 // Use connect method to connect to the server
 MongoClient.connect(url, function(_err: any, client: any) {
   assert.equal(null, _err);

@@ -42,7 +42,7 @@ const createLDAPServer = (db: any) => {
   };
 
   const findClients: any = function(callback: any) {
-    const clients = db.collection('userclients');
+    const clients = db.collection('userpools');
     clients
       .find({
         isDeleted: false,
@@ -440,7 +440,7 @@ const createLDAPServer = (db: any) => {
       initLdapRoutes(client);
     }
 
-    const collection = db.collection('userclients');
+    const collection = db.collection('userpools');
     const changeStream = collection.watch();
     changeStream.on('change', (oplog: any) => {
       // process next document

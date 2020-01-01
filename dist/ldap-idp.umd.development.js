@@ -59,7 +59,7 @@
     };
 
     const findClients = function(callback) {
-      const clients = db.collection('userclients');
+      const clients = db.collection('userpools');
       clients
         .find({
           isDeleted: false,
@@ -450,7 +450,7 @@
         initLdapRoutes(client);
       }
 
-      const collection = db.collection('userclients');
+      const collection = db.collection('userpools');
       const changeStream = collection.watch();
       changeStream.on('change', oplog => {
         // process next document

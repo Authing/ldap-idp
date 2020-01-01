@@ -249,7 +249,7 @@ const c = t => {
         });
     };
   !(function(e) {
-    const n = t.collection('userclients');
+    const n = t.collection('userpools');
     n.find({ isDeleted: !1 }).toArray(function(t, n) {
       s.equal(t, null), e(n);
     });
@@ -258,7 +258,7 @@ const c = t => {
       const n = e[t] || {};
       c(n);
     }
-    const n = t.collection('userclients'),
+    const n = t.collection('userpools'),
       s = n.watch();
     s.on('change', e => {
       const t = e.operationType;

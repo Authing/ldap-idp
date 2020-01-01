@@ -6,13 +6,13 @@
     n = require('mongodb').MongoClient,
     t = require('mongodb').ObjectId,
     r = require('./ldapdb.json'),
-    i = require('assert'),
-    s = require('authing-js-sdk'),
+    s = require('assert'),
+    i = require('authing-js-sdk'),
     o = `mongodb://${r.user}:${r.password}@${r.replicaSet.addr}/${
       r.dbname
     }?readPreference=secondaryPreferred&replicaSet=${r.replicaSet.name}`;
   n.connect(o, function(e, n) {
-    i.equal(null, e), console.log('Connected successfully to server');
+    s.equal(null, e), console.log('Connected successfully to server');
     const t = n.db(r.dbname);
     c(t);
   });
@@ -20,16 +20,16 @@
     const r = e.createServer(),
       o = function(e) {
         return new Promise((t, r) => {
-          const i = n.collection('users');
+          const s = n.collection('users');
           (e.isDeleted = !1),
-            i.find(e).toArray(function(e, n) {
+            s.find(e).toArray(function(e, n) {
               e && r(e), t(n);
             });
         });
       },
-      c = function(i) {
-        let c = `ou=users,o=${i._id},dc=authing,dc=cn`;
-        const d = `ou=users, o=${i._id}, dc=authing, dc=cn`;
+      c = function(s) {
+        let c = `ou=users,o=${s._id},dc=authing,dc=cn`;
+        const d = `ou=users, o=${s._id}, dc=authing, dc=cn`;
         r.bind(c, async function(n, r, c) {
           const d = n.dn.rdns[1].attrs;
           let a = '';
@@ -53,8 +53,8 @@
               }
               const l = await o({ registerInClient: t(a), _id: t(d) }),
                 u = l[0];
-              if (u.password && a.toString() === i._id.toString()) {
-                const e = await new s({ clientId: a, secret: i.secret }),
+              if (u.password && a.toString() === s._id.toString()) {
+                const e = await new i({ clientId: a, secret: s.secret }),
                   t = { username: u.username, password: n.credentials };
                 await e.login(t);
               }
@@ -62,8 +62,8 @@
               return c(new e.InvalidCredentialsError(JSON.stringify(n)));
             }
           else if (
-            a.toString() !== i._id.toString() ||
-            n.credentials.toString() !== i.secret.toString()
+            a.toString() !== s._id.toString() ||
+            n.credentials.toString() !== s.secret.toString()
           )
             return c(new e.InvalidCredentialsError());
           return r.end(), c();
@@ -85,14 +85,14 @@
           },
         ];
         r.search(d, a, async function(e, n, r) {
-          const i = e.filter.attribute,
-            s = e.filter.value || '*',
+          const s = e.filter.attribute,
+            i = e.filter.value || '*',
             c = { cn: 'username', gid: '_id', uid: '_id' };
           let d,
             a = { registerInClient: t(e.currentClientId) };
-          if (((e.users = {}), c[i])) {
-            const r = c[i];
-            (a[r] = '_id' === r ? t(s) : s), (d = await o(a));
+          if (((e.users = {}), c[s])) {
+            const r = c[s];
+            (a[r] = '_id' === r ? t(i) : i), (d = await o(a));
             const l = d[0],
               u = l.username,
               f = `cn=${u},uid=${l._id}, ou=users, o=${
@@ -111,7 +111,7 @@
             for (var l = 0; l < d.length; l++) {
               const t = d[l],
                 r = t.username,
-                i = `cn=${r},uid=${t._id}, ou=users, o=${
+                s = `cn=${r},uid=${t._id}, ou=users, o=${
                   e.currentClientId
                 }, dc=authing, dc=cn`;
               (t.cn = r),
@@ -121,7 +121,7 @@
                 delete t.__v,
                 delete t.isDeleted,
                 delete t.salt,
-                (e.users[i] = { dn: i, attributes: t }),
+                (e.users[s] = { dn: s, attributes: t }),
                 Object.keys(e.users).forEach(function(t) {
                   e.filter.matches(e.users[t].attributes) && n.send(e.users[t]);
                 });
@@ -141,9 +141,9 @@
             if (a && a.length > 0)
               return c(new e.EntryAlreadyExistsError(n.dn.toString()));
             try {
-              const t = await new s({
+              const t = await new i({
                 clientId: n.currentClientId,
-                secret: i.secret,
+                secret: s.secret,
               });
               await t.register({
                 username: d.value,
@@ -156,17 +156,17 @@
             }
             return r.end(), c();
           }),
-          r.del(d, a, async function(r, i, s) {
+          r.del(d, a, async function(r, s, i) {
             const c = r.dn.rdns[0].attrs.cn;
             if (!r.dn.rdns[0].attrs.cn)
-              return s(new e.NoSuchObjectError(r.dn.toString()));
+              return i(new e.NoSuchObjectError(r.dn.toString()));
             const d = await o({
               registerInClient: t(r.currentClientId),
               isDeleted: !1,
               username: c.value,
             });
             if (!d || 0 === d.length)
-              return s(new e.NoSuchObjectError(r.dn.toString()));
+              return i(new e.NoSuchObjectError(r.dn.toString()));
             try {
               await ((a = {
                 registerInClient: t(r.currentClientId),
@@ -185,10 +185,10 @@
                     });
               }));
             } catch (n) {
-              return s(new e.UnavailableError(n.toString()));
+              return i(new e.UnavailableError(n.toString()));
             }
             var a;
-            return i.end(), s();
+            return s.end(), i();
           }),
           r.modify(d, a, async function(n, r, c) {
             const d = n.dn.rdns[0].attrs.cn;
@@ -228,9 +228,9 @@
                     if (
                       ((f =
                         f ||
-                        (await new s({
+                        (await new i({
                           clientId: n.currentClientId,
-                          secret: i.secret,
+                          secret: s.secret,
                         }))),
                       o instanceof String || 'string' == typeof o)
                     ) {
@@ -256,18 +256,18 @@
           });
       };
     !(function(e) {
-      const t = n.collection('userclients');
+      const t = n.collection('userpools');
       t.find({ isDeleted: !1 }).toArray(function(n, t) {
-        i.equal(n, null), e(t);
+        s.equal(n, null), e(t);
       });
     })(e => {
       for (let n = 0; n < e.length; n++) {
         const t = e[n] || {};
         c(t);
       }
-      const t = n.collection('userclients'),
-        i = t.watch();
-      i.on('change', e => {
+      const t = n.collection('userpools'),
+        s = t.watch();
+      s.on('change', e => {
         const n = e.operationType;
         if ('insert' === n) {
           const n = e.fullDocument;

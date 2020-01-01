@@ -14,6 +14,9 @@
   process.on('unhandledRejection', e => {
     console.log('全局reject'), console.log(e);
   }),
+    process.on('uncaughtException', function(e) {
+      console.log(e);
+    }),
     n.connect(o, function(e, n) {
       s.equal(null, e), console.log('Connected successfully to server');
       const t = n.db(r.dbname);

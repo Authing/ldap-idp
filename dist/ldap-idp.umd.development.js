@@ -39,6 +39,10 @@
   process.on('unhandledRejection', err => {
     console.log('全局reject');
     console.log(err);
+  }); // uncaughtException 避免程序崩溃
+
+  process.on('uncaughtException', function(err) {
+    console.log(err);
   }); // Use connect method to connect to the server
 
   MongoClient.connect(url, function(_err, client) {

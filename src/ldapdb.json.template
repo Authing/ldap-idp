@@ -5,5 +5,9 @@
   "user": "user",
   "password": "password",
   "adminUsername": "authing",
-  "adminUserPassword": "password"
+  "adminUserPassword": "password",
+  "replicaSet": {
+		"addr": "user_db:27017,user_db2:27017,user_db3:27017",
+		"name": "rs0"
+	}
 }

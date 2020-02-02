@@ -1,12 +1,24 @@
 'use strict';
 
+var config = {
+  domainComponent: ['authing', 'cn'],
+  authing: {
+    graphqlEndPoint: {
+      core: 'https://core.authing.cn/graphql',
+    },
+    passwordEncPublicKey: `-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4xKeUgQ+Aoz7TLfAfs9+paePb
+5KIofVthEopwrXFkp8OCeocaTHt9ICjTT2QeJh6cZaDaArfZ873GPUn00eOIZ7Ae
++TiA2BKHbCvloW3w5Lnqm70iSsUi5Fmu9/2+68GZRH9L7Mlh8cFksCicW2Y2W2uM
+GKl64GDcIq3au+aqJQIDAQAB
+-----END PUBLIC KEY-----`,
+  },
+};
+
 const ldap =
   /*#__PURE__*/
-  require('ldapjs');
-
-const parseDN =
-  /*#__PURE__*/
-  require('ldapjs').parseDN;
+  require('ldapjs'); // const parseDN = require('ldapjs').parseDN;
+// const fs = require('fs');
 
 const MongoClient =
   /*#__PURE__*/
@@ -36,7 +48,13 @@ const url = `mongodb://${ldapdb.user}:${ldapdb.password}@${
 process.on('unhandledRejection', err => {
   console.log('全局reject');
   console.log(err);
-}); // uncaughtException 避免程序崩溃
+});
+
+function generateDc(domainComponent, seperator = ',') {
+  let arr = domainComponent.map(item => 'dc=' + item);
+  let dcStr = arr.join(seperator);
+  return dcStr;
+} // uncaughtException 避免程序崩溃
 
 process.on('uncaughtException', function(err) {
   console.log(err);
@@ -108,8 +126,13 @@ const createLDAPServer = db => {
   // };
 
   const initLdapRoutes = function(client) {
-    let bindDN = `ou=users,o=${client._id},dc=authing,dc=cn`;
-    const SUFFIX = `ou=users, o=${client._id}, dc=authing, dc=cn`;
+    let bindDN = `ou=users,o=${client._id},${generateDc(
+      config.domainComponent
+    )}`;
+    const SUFFIX = `ou=users, o=${client._id}, ${generateDc(
+      config.domainComponent,
+      ', '
+    )}`;
     /*
       DN = uid=LDAP_BINDING_USER（邮箱或者手机号）,ou=Users,o=AUTHING_CLINET_ID,dc=authing,dc=cn
       ldapsearch -H ldap://localhost:1389 -x -D "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" -LLL -b "ou=users,o=59f86b4832eb28071bdd9214,dc=authing,dc=cn" cn=18000179176
@@ -167,9 +190,14 @@ const createLDAPServer = db => {
 
           if (user.password) {
             if (currentClientId.toString() === client._id.toString()) {
-              const authing = await new Authing({
-                clientId: currentClientId,
+              const authing = new Authing({
+                userPoolId: currentClientId,
                 secret: client.secret,
+                host: {
+                  user: config.authing.graphqlEndPoint.core,
+                  oauth: config.authing.graphqlEndPoint.core,
+                },
+                passwordEncPublicKey: config.authing.passwordEncPublicKey,
               });
               const loginOpt = {
                 username: user.username,
@@ -244,7 +272,7 @@ const createLDAPServer = db => {
         const cn = currentUser.username;
         const dn = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
           req.currentClientId
-        }, dc=authing, dc=cn`;
+        }, ${generateDc(config.domainComponent, ', ')}`;
         currentUser['cn'] = cn;
         currentUser['gid'] = currentUser._id;
         currentUser['uid'] = currentUser._id;
@@ -264,7 +292,7 @@ const createLDAPServer = db => {
           const cn = currentUser.username;
           const dn = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
             req.currentClientId
-          }, dc=authing, dc=cn`;
+          }, ${generateDc(config.domainComponent, ', ')}`;
           currentUser['cn'] = cn;
           currentUser['gid'] = currentUser._id;
           currentUser['uid'] = currentUser._id;
@@ -303,9 +331,14 @@ const createLDAPServer = db => {
       }
 
       try {
-        const authing = await new Authing({
-          clientId: req.currentClientId,
+        const authing = new Authing({
+          userPoolId: req.currentClientId,
           secret: client.secret,
+          host: {
+            user: config.authing.graphqlEndPoint.core,
+            oauth: config.authing.graphqlEndPoint.core,
+          },
+          passwordEncPublicKey: config.authing.passwordEncPublicKey,
         });
         await authing.register({
           username: cn.value,
@@ -397,10 +430,15 @@ const createLDAPServer = db => {
             try {
               authing =
                 authing ||
-                (await new Authing({
-                  clientId: req.currentClientId,
+                new Authing({
+                  userPoolId: req.currentClientId,
                   secret: client.secret,
-                }));
+                  host: {
+                    user: config.authing.graphqlEndPoint.core,
+                    oauth: config.authing.graphqlEndPoint.core,
+                  },
+                  passwordEncPublicKey: config.authing.passwordEncPublicKey,
+                });
 
               if (
                 fieldModified instanceof String ||

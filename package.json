@@ -1,6 +1,6 @@
 {
   "name": "ldap-idp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "dist/index.js",
   "umd:main": "dist/ldap-idp.umd.production.js",
   "module": "dist/ldap-idp.es.production.js",
@@ -35,7 +35,7 @@
     "typescript": "^3.4.5"
   },
   "dependencies": {
-    "authing-js-sdk": "^2.5.1",
+    "authing-js-sdk": "^3.5.0",
     "ldapjs": "^1.0.2",
     "mongodb": "^3.2.4"
   }

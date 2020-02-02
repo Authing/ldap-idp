@@ -1,0 +1,9 @@
+{
+  "ip": "127.0.0.1",
+  "port": 27017,
+  "dbname": "authing_core",
+  "user": "user",
+  "password": "password",
+  "adminUsername": "authing",
+  "adminUserPassword": "password"
+}

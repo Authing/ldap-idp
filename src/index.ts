@@ -1,9 +1,10 @@
 const ldap = require('ldapjs');
-const parseDN = require('ldapjs').parseDN;
-const fs = require('fs');
+// const parseDN = require('ldapjs').parseDN;
+// const fs = require('fs');
 const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require('mongodb').ObjectId;
 const ldapdb = require('./ldapdb.json');
+import config from './config';
 
 const assert = require('assert');
 
@@ -20,7 +21,11 @@ process.on('unhandledRejection', err => {
   console.log('全局reject');
   console.log(err);
 });
-
+function generateDc(domainComponent: Array<string>, seperator: string = ',') {
+  let arr = domainComponent.map(item => 'dc=' + item);
+  let dcStr = arr.join(seperator);
+  return dcStr;
+}
 // uncaughtException 避免程序崩溃
 process.on('uncaughtException', function(err) {
   console.log(err);
@@ -98,8 +103,13 @@ const createLDAPServer = (db: any) => {
   // };
 
   const initLdapRoutes: any = function(client: any) {
-    let bindDN: string = `ou=users,o=${client._id},dc=authing,dc=cn`;
-    const SUFFIX: string = `ou=users, o=${client._id}, dc=authing, dc=cn`;
+    let bindDN: string = `ou=users,o=${client._id},${generateDc(
+      config.domainComponent
+    )}`;
+    const SUFFIX: string = `ou=users, o=${client._id}, ${generateDc(
+      config.domainComponent,
+      ', '
+    )}`;
 
     /*
       DN = uid=LDAP_BINDING_USER（邮箱或者手机号）,ou=Users,o=AUTHING_CLINET_ID,dc=authing,dc=cn
@@ -155,9 +165,14 @@ const createLDAPServer = (db: any) => {
 
           if (user.password) {
             if (currentClientId.toString() === client._id.toString()) {
-              const authing = await new Authing({
-                clientId: currentClientId,
+              const authing = new Authing({
+                userPoolId: currentClientId,
                 secret: client.secret,
+                host: {
+                  user: config.authing.graphqlEndPoint.core,
+                  oauth: config.authing.graphqlEndPoint.core,
+                },
+                passwordEncPublicKey: config.authing.passwordEncPublicKey,
               });
 
               const loginOpt = {
@@ -237,7 +252,7 @@ const createLDAPServer = (db: any) => {
         const cn: any = currentUser.username;
         const dn: string = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
           req.currentClientId
-        }, dc=authing, dc=cn`;
+        }, ${generateDc(config.domainComponent, ', ')}`;
         currentUser['cn'] = cn;
         currentUser['gid'] = currentUser._id;
         currentUser['uid'] = currentUser._id;
@@ -258,7 +273,7 @@ const createLDAPServer = (db: any) => {
           const cn: any = currentUser.username;
           const dn: string = `cn=${cn},uid=${currentUser._id}, ou=users, o=${
             req.currentClientId
-          }, dc=authing, dc=cn`;
+          }, ${generateDc(config.domainComponent, ', ')}`;
           currentUser['cn'] = cn;
           currentUser['gid'] = currentUser._id;
           currentUser['uid'] = currentUser._id;
@@ -301,9 +316,14 @@ const createLDAPServer = (db: any) => {
       }
 
       try {
-        const authing = await new Authing({
-          clientId: req.currentClientId,
+        const authing = new Authing({
+          userPoolId: req.currentClientId,
           secret: client.secret,
+          host: {
+            user: config.authing.graphqlEndPoint.core,
+            oauth: config.authing.graphqlEndPoint.core,
+          },
+          passwordEncPublicKey: config.authing.passwordEncPublicKey,
         });
 
         await authing.register({
@@ -400,10 +420,15 @@ const createLDAPServer = (db: any) => {
             try {
               authing =
                 authing ||
-                (await new Authing({
-                  clientId: req.currentClientId,
+                new Authing({
+                  userPoolId: req.currentClientId,
                   secret: client.secret,
-                }));
+                  host: {
+                    user: config.authing.graphqlEndPoint.core,
+                    oauth: config.authing.graphqlEndPoint.core,
+                  },
+                  passwordEncPublicKey: config.authing.passwordEncPublicKey,
+                });
 
               if (
                 fieldModified instanceof String ||
